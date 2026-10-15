@@ -67,6 +67,7 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: Tests/HPL2CRCTests/HPL2CRCTests.mm
+      - path: Sources/EngineHostCore.c
     dependencies:
       - target: HPL2CRC
       - target: HPL2Quaternion
@@ -74,7 +75,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.example.hpl2crctests
-        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include"
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include $(SRCROOT)/Sources"
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/HPL2CRCTestHost.app/HPL2CRCTestHost"

@@ -1,8 +1,8 @@
 # SDL3 iOS Touch PoC
 
-A small, asset-free iOS project used to verify SDL's iOS lifecycle, touch input, and Xcode build path before attempting to port HPL2. The `SDLTouchPoC` app remains independent of Amnesia. Separate smoke tests compile pinned HPL2 CRC and quaternion source modules; no full engine or commercial game assets are vendored.
+A small, asset-free iOS project used to verify SDL's iOS lifecycle, touch input, and Xcode build path before attempting to port HPL2. The `SDLTouchPoC` app remains independent of Amnesia. It now also records a clamped monotonic frame delta, pauses across background transitions, logs startup/render failures through SDL, and resolves separate bundle-resource and writable-data roots. Separate smoke tests compile pinned HPL2 CRC and quaternion source modules and test the frame-clock logic; no full engine or commercial game assets are vendored.
 
-The app fills the display with blue. Holding a touch changes it to red-orange; lifting or cancelling the touch restores blue. It pauses drawing on `SDL_EVENT_WILL_ENTER_BACKGROUND` and resumes on `SDL_EVENT_DID_ENTER_FOREGROUND`.
+The app fills the display with blue. Holding a touch changes it to red-orange; lifting or cancelling the touch restores blue. It pauses drawing on `SDL_EVENT_WILL_ENTER_BACKGROUND` and resumes on `SDL_EVENT_DID_ENTER_FOREGROUND`. `EngineHostCore` computes monotonic frame deltas clamped to 250 ms and resets timing over suspension; this is a reusable timing foundation, not yet connected to HPL2 simulation. SDL supplies the app-bundle resource root and the separate app-writable data root, which are logged at startup.
 
 ## Pinned SDL dependency
 
@@ -18,7 +18,7 @@ The first test exercises `CRC.cpp`: CRC of `123456789` with key `0x04C11DB7` mus
 
 The next test exercises `Quaternion.cpp`, an HPL2 rotation component used by the engine's math/camera transforms. Its compiler-discovered header closure includes HPL2 math, graphics-type, and system-type headers (`Math.h`, `MathTypes.h`, `Matrix.h`, vectors, `BoundingVolume.h`, `GraphicsTypes.h`, `Color.h`, and low-level/system declarations), but no platform implementation or external library. The test verifies that a normalized 90-degree Z-axis rotation maps X to Y, that composing it twice maps X to -X, and that quaternion/matrix round-tripping preserves the rotation.
 
-GitHub Actions compiles the CRC and Quaternion static libraries for the iOS device SDK and runs both deterministic XCTest methods on an **iOS Simulator**. This is not a physical-iPhone test and does not initialize HPL2, its renderer, or the Amnesia game. The upstream implementation carries GPL-3.0 notices; preserve them and account for that license if distributing a combined binary.
+GitHub Actions compiles the CRC and Quaternion static libraries for the iOS device SDK and runs the CRC, Quaternion, and frame-clock XCTest methods on an **iOS Simulator**. This is not a physical-iPhone test and does not initialize HPL2, its renderer, or the Amnesia game. The upstream implementation carries GPL-3.0 notices; preserve them and account for that license if distributing a combined binary.
 
 ## Build locally on a Mac
 
@@ -94,7 +94,7 @@ To use another Xcode version or signing identity, change the Xcode project/build
 
 ## GitHub Actions
 
-The repository-root workflow at `.github/workflows/ios-sdl-poc.yml` runs on `macos-15`. It preserves the existing SDL3 device and simulator builds, compiles the HPL2 CRC and Quaternion static libraries for the iOS device SDK, then runs both deterministic XCTest methods on an available iPhone Simulator. It also packages and uploads the unsigned SDL app IPA and uploads the existing app products.
+The repository-root workflow at `.github/workflows/ios-sdl-poc.yml` runs on `macos-15`. It preserves the SDL3 device and simulator builds, compiles the HPL2 CRC and Quaternion static libraries for the iOS device SDK, then runs the CRC, Quaternion, and frame-clock tests on an available iPhone Simulator. It also packages and uploads the unsigned SDL app IPA and uploads the app products.
 
 GitHub Actions does not attach a physical iPhone. HPL2 CRC and Quaternion execution is simulator-only; the iOS device-SDK step compiles the libraries but does not run them on hardware. The workflow does not boot HPL2 or render an Amnesia scene. The SDL device app artifact remains unsigned and is not installable until signed with a valid Apple identity and matching provisioning profile. TestFlight distribution additionally requires Apple Developer Program membership. When a published GitHub Release exists, the workflow also attaches the SDL IPA to the latest release; it never creates a release.
 

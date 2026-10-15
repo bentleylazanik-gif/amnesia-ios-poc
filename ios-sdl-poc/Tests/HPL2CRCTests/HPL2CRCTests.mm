@@ -2,6 +2,7 @@
 
 #include "math/CRC.h"
 #include "math/Quaternion.h"
+#include "EngineHostCore.h"
 
 @interface HPL2CRCTests : XCTestCase
 @end
@@ -61,6 +62,29 @@
                                        quarterTurnMatrix.m[row][column], 1e-5f);
         }
     }
+}
+
+- (void)testEngineHostFrameClockPauseResumeAndClamping
+{
+    EngineHostFrameClock clock;
+    EngineHostFrameClockInit(&clock, 10000000000ULL);
+
+    XCTAssertEqualWithAccuracy(
+        EngineHostFrameClockAdvance(&clock, 10016000000ULL, false), 0.016, 1e-9);
+
+    // A suspended app must not accumulate background time.
+    XCTAssertEqualWithAccuracy(
+        EngineHostFrameClockAdvance(&clock, 90000000000ULL, true), 0.0, 1e-12);
+    XCTAssertEqualWithAccuracy(
+        EngineHostFrameClockAdvance(&clock, 90016000000ULL, false), 0.016, 1e-9);
+
+    // Bound a long foreground stall before it reaches engine simulation code.
+    XCTAssertEqualWithAccuracy(
+        EngineHostFrameClockAdvance(&clock, 91016000000ULL, false), 0.25, 1e-12);
+
+    // A non-monotonic timestamp is treated as a zero-length frame.
+    XCTAssertEqualWithAccuracy(
+        EngineHostFrameClockAdvance(&clock, 91000000000ULL, false), 0.0, 1e-12);
 }
 
 @end
