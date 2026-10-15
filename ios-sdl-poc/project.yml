@@ -64,6 +64,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.example.hpl2crctests
         HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include"
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+        GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/HPL2CRCTestHost.app/HPL2CRCTestHost"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
