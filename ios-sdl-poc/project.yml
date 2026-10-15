@@ -37,6 +37,17 @@ targets:
         HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include"
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
 
+  HPL2Quaternion:
+    type: library.static
+    platform: iOS
+    sources:
+      - path: EngineSource/HPL2/core/sources/math/Quaternion.cpp
+    settings:
+      base:
+        PRODUCT_NAME: HPL2Quaternion
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include"
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+
   HPL2CRCTestHost:
     type: application
     platform: iOS
@@ -58,6 +69,7 @@ targets:
       - path: Tests/HPL2CRCTests/HPL2CRCTests.mm
     dependencies:
       - target: HPL2CRC
+      - target: HPL2Quaternion
       - target: HPL2CRCTestHost
     settings:
       base:
@@ -77,6 +89,7 @@ schemes:
     build:
       targets:
         HPL2CRC: all
+        HPL2Quaternion: all
         HPL2CRCTestHost: all
         HPL2CRCTests: [test]
     test:

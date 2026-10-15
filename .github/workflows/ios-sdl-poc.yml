@@ -23,20 +23,39 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Check out and stage the pinned HPL2 CRC source
+      - name: Check out and stage pinned HPL2 math sources
         shell: bash
         run: |
           set -euo pipefail
           UPSTREAM_DIR="${RUNNER_TEMP}/amnesia-upstream"
           UPSTREAM_SHA="acc95cdedd6c94db89dc924eb9afa23185df562f"
+          UPSTREAM_FILES=(
+            HPL2/core/include/graphics/Color.h
+            HPL2/core/include/graphics/GraphicsTypes.h
+            HPL2/core/include/math/BoundingVolume.h
+            HPL2/core/include/math/CRC.h
+            HPL2/core/include/math/Math.h
+            HPL2/core/include/math/MathTypes.h
+            HPL2/core/include/math/Matrix.h
+            HPL2/core/include/math/MeshTypes.h
+            HPL2/core/include/math/Quaternion.h
+            HPL2/core/include/math/Vector2.h
+            HPL2/core/include/math/Vector3.h
+            HPL2/core/include/system/Container.h
+            HPL2/core/include/system/LowLevelSystem.h
+            HPL2/core/include/system/MemoryManager.h
+            HPL2/core/include/system/SerializeClass.h
+            HPL2/core/include/system/SystemTypes.h
+            HPL2/core/sources/math/CRC.cpp
+            HPL2/core/sources/math/Quaternion.cpp
+          )
 
           git clone --filter=blob:none --no-checkout \
             https://github.com/FrictionalGames/AmnesiaTheDarkDescent.git \
             "${UPSTREAM_DIR}"
           git -C "${UPSTREAM_DIR}" sparse-checkout init --no-cone
           git -C "${UPSTREAM_DIR}" sparse-checkout set --no-cone \
-            '/HPL2/core/include/math/CRC.h' \
-            '/HPL2/core/sources/math/CRC.cpp'
+            "${UPSTREAM_FILES[@]/#/\/}"
           git -C "${UPSTREAM_DIR}" checkout --detach "${UPSTREAM_SHA}"
 
           ACTUAL_SHA="$(git -C "${UPSTREAM_DIR}" rev-parse HEAD)"
@@ -45,14 +64,15 @@ jobs:
             exit 1
           fi
 
-          mkdir -p ios-sdl-poc/EngineSource/HPL2/core/include/math
-          mkdir -p ios-sdl-poc/EngineSource/HPL2/core/sources/math
-          cp "${UPSTREAM_DIR}/HPL2/core/include/math/CRC.h" \
-            ios-sdl-poc/EngineSource/HPL2/core/include/math/CRC.h
-          cp "${UPSTREAM_DIR}/HPL2/core/sources/math/CRC.cpp" \
-            ios-sdl-poc/EngineSource/HPL2/core/sources/math/CRC.cpp
-          test -f ios-sdl-poc/EngineSource/HPL2/core/include/math/CRC.h
-          test -f ios-sdl-poc/EngineSource/HPL2/core/sources/math/CRC.cpp
+          for relative_path in "${UPSTREAM_FILES[@]}"; do
+            if [[ ! -f "${UPSTREAM_DIR}/${relative_path}" ]]; then
+              echo "::error::Pinned upstream file is missing: ${relative_path}"
+              exit 1
+            fi
+            destination="ios-sdl-poc/EngineSource/${relative_path}"
+            mkdir -p "$(dirname "${destination}")"
+            cp "${UPSTREAM_DIR}/${relative_path}" "${destination}"
+          done
 
       - name: Show Xcode version
         run: xcodebuild -version
@@ -68,7 +88,7 @@ jobs:
         working-directory: ios-sdl-poc
         run: xcodegen generate --spec project.yml
 
-      - name: Compile HPL2 CRC for the iOS device SDK (not a device run)
+      - name: Compile HPL2 core-math smoke libraries for iOS device SDK (not a device run)
         working-directory: ios-sdl-poc
         run: >-
           xcodebuild
@@ -81,7 +101,7 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
 
-      - name: Run HPL2 CRC XCTest on iOS Simulator (not a physical iPhone)
+      - name: Run HPL2 core-math XCTest on iOS Simulator (not a physical iPhone)
         working-directory: ios-sdl-poc
         shell: bash
         run: |
