@@ -73,8 +73,9 @@ jobs:
         run: >-
           xcodebuild
           -project SDLTouchPoC.xcodeproj
-          -target HPL2CRC
+          -scheme HPL2CRCSmoke
           -configuration Debug
+          -destination 'generic/platform=iOS'
           -sdk iphoneos
           -derivedDataPath .build/HPL2CRCDevice
           CODE_SIGNING_ALLOWED=NO
