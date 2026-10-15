@@ -144,6 +144,18 @@
 {
     const NSUInteger width = 64;
     const NSUInteger height = 64;
+    NSError *invalidError = nil;
+    XCTAssertNil([IOSMetalTriangleProbe renderTriangleWithWidth:0
+                                                         height:height
+                                                          error:&invalidError]);
+    XCTAssertNotNil(invalidError);
+
+    NSError *oversizedError = nil;
+    XCTAssertNil([IOSMetalTriangleProbe renderTriangleWithWidth:4096
+                                                         height:4096
+                                                          error:&oversizedError]);
+    XCTAssertNotNil(oversizedError);
+
     NSError *error = nil;
     NSData *pixels = [IOSMetalTriangleProbe renderTriangleWithWidth:width
                                                             height:height
@@ -153,7 +165,11 @@
         return;
     }
 
-    XCTAssertEqual(pixels.length, width * height * 4);
+    const NSUInteger expectedByteCount = width * height * 4;
+    XCTAssertEqual(pixels.length, expectedByteCount);
+    if (pixels.length != expectedByteCount) {
+        return;
+    }
     const unsigned char *rgba = (const unsigned char *)pixels.bytes;
     const NSUInteger centerOffset = ((height / 2) * width + (width / 2)) * 4;
     XCTAssertTrue(rgba[centerOffset] != 0 || rgba[centerOffset + 1] != 0 ||
@@ -166,6 +182,15 @@
     XCTAssertEqual(rgba[1], (unsigned char)0);
     XCTAssertEqual(rgba[2], (unsigned char)0);
     XCTAssertEqual(rgba[3], (unsigned char)255);
+
+    NSError *repeatError = nil;
+    NSData *repeatedPixels = [IOSMetalTriangleProbe renderTriangleWithWidth:width
+                                                                     height:height
+                                                                      error:&repeatError];
+    XCTAssertNotNil(repeatedPixels, @"Repeated Metal render failed: %@", repeatError);
+    if (repeatedPixels != nil) {
+        XCTAssertEqualObjects(repeatedPixels, pixels);
+    }
 }
 
 - (void)testEngineHostFrameClockPauseResumeAndClamping

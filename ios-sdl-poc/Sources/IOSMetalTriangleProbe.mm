@@ -25,6 +25,22 @@ static NSError *MakeProbeError(NSInteger code, NSString *description)
         return nil;
     }
 
+    const NSUInteger byteCount = width * height * 4;
+    if (byteCount > 16 * 1024 * 1024) {
+        if (error != NULL) {
+            *error = MakeProbeError(9, @"The offscreen readback is limited to 16 MiB.");
+        }
+        return nil;
+    }
+
+    NSMutableData *pixels = [NSMutableData dataWithLength:byteCount];
+    if (pixels == nil) {
+        if (error != NULL) {
+            *error = MakeProbeError(10, @"Could not allocate the Metal pixel readback buffer.");
+        }
+        return nil;
+    }
+
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     if (device == nil) {
         if (error != NULL) {
@@ -125,7 +141,6 @@ static NSError *MakeProbeError(NSInteger code, NSString *description)
         return nil;
     }
 
-    NSMutableData *pixels = [NSMutableData dataWithLength:width * height * 4];
     [texture getBytes:pixels.mutableBytes
           bytesPerRow:width * 4
            fromRegion:MTLRegionMake2D(0, 0, width, height)
