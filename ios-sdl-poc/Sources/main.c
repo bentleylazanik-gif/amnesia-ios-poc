@@ -10,7 +10,7 @@
 typedef struct AppState {
     SDL_Window *window;
     SDL_Renderer *renderer;
-    char *bundle_resource_root;
+    const char *bundle_resource_root;
     char *writable_data_root;
     EngineHostFrameClock frame_clock;
     atomic_bool paused;
@@ -145,7 +145,7 @@ void SDLCALL SDL_AppQuit(void *state, SDL_AppResult result)
             SDL_DestroyWindow(app->window);
             app->window = NULL;
         }
-        SDL_free(app->bundle_resource_root);
+        // SDL owns the cached base path; SDL_GetPrefPath returns an owned buffer.
         app->bundle_resource_root = NULL;
         SDL_free(app->writable_data_root);
         app->writable_data_root = NULL;

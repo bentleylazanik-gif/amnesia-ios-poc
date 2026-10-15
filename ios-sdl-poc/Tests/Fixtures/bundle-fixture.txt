@@ -1,0 +1,1 @@
+Pinned test fixture for bundle-rooted resource access.
