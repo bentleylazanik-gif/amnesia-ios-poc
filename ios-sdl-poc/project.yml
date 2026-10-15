@@ -48,7 +48,7 @@ targets:
         HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include"
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
 
-  # Allow the smoke-test linker to dead-strip unrelated engine math routines.
+  # Keep this test-only archive local so the bundle linker can dead-strip unused routines.
   HPL2Math:
     type: library.static
     platform: iOS
@@ -60,7 +60,7 @@ targets:
         PRODUCT_NAME: HPL2Math
         HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include"
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
-        OTHER_CPLUSPLUSFLAGS: "$(inherited) -ffunction-sections -fdata-sections"
+        OTHER_CPLUSPLUSFLAGS: "$(inherited) -ffunction-sections -fdata-sections -fvisibility=hidden"
 
   HPL2CRCTestHost:
     type: application
