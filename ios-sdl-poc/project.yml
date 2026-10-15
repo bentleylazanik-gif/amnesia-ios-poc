@@ -1,0 +1,27 @@
+name: SDLTouchPoC
+options:
+  bundleIdPrefix: org.example
+  deploymentTarget:
+    iOS: "14.0"
+
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: org.example.sdltouchpoc
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CLANG_C_LANGUAGE_STANDARD: gnu11
+
+targets:
+  SDLTouchPoC:
+    type: application
+    platform: iOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Sources
+    info:
+      path: Info.plist
+    dependencies:
+      - framework: Vendor/SDL3.xcframework
+        embed: true
+    settings:
+      base:
+        PRODUCT_NAME: SDLTouchPoC

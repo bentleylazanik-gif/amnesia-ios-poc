@@ -1,0 +1,71 @@
+name: SDL3 iOS PoC
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "ios-sdl-poc/**"
+      - ".github/workflows/ios-sdl-poc.yml"
+  pull_request:
+    paths:
+      - "ios-sdl-poc/**"
+      - ".github/workflows/ios-sdl-poc.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build unsigned iOS targets
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Fetch and verify official SDL3 release
+        working-directory: ios-sdl-poc
+        run: ./scripts/fetch-sdl.sh
+
+      - name: Generate Xcode project
+        working-directory: ios-sdl-poc
+        run: xcodegen generate --spec project.yml
+
+      - name: Build for iOS devices (unsigned)
+        working-directory: ios-sdl-poc
+        run: >-
+          xcodebuild
+          -project SDLTouchPoC.xcodeproj
+          -scheme SDLTouchPoC
+          -configuration Debug
+          -destination 'generic/platform=iOS'
+          -derivedDataPath .build/DerivedData
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Build for iOS Simulator (unsigned)
+        working-directory: ios-sdl-poc
+        run: >-
+          xcodebuild
+          -project SDLTouchPoC.xcodeproj
+          -scheme SDLTouchPoC
+          -configuration Debug
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath .build/DerivedData
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Upload compiled app products
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDLTouchPoC-unsigned-apps
+          path: |
+            ios-sdl-poc/.build/DerivedData/Build/Products/Debug-iphoneos/SDLTouchPoC.app
+            ios-sdl-poc/.build/DerivedData/Build/Products/Debug-iphonesimulator/SDLTouchPoC.app
+          if-no-files-found: error
