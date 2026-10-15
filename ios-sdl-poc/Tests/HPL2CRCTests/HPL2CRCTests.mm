@@ -5,6 +5,7 @@
 #include "math/Quaternion.h"
 #include "EngineHostCore.h"
 #include "EngineResourceAccess.h"
+#include "IOSMetalTriangleProbe.h"
 
 #include <cmath>
 #include <cstring>
@@ -137,6 +138,34 @@
     XCTAssertEqualWithAccuracy(rotated.x, 0.0f, 1e-5f);
     XCTAssertEqualWithAccuracy(rotated.y, 1.0f, 1e-5f);
     XCTAssertEqualWithAccuracy(rotated.z, 0.0f, 1e-5f);
+}
+
+- (void)testMetalOffscreenTriangleProducesPixels
+{
+    const NSUInteger width = 64;
+    const NSUInteger height = 64;
+    NSError *error = nil;
+    NSData *pixels = [IOSMetalTriangleProbe renderTriangleWithWidth:width
+                                                            height:height
+                                                             error:&error];
+    XCTAssertNotNil(pixels, @"Metal triangle render failed: %@", error);
+    if (pixels == nil) {
+        return;
+    }
+
+    XCTAssertEqual(pixels.length, width * height * 4);
+    const unsigned char *rgba = (const unsigned char *)pixels.bytes;
+    const NSUInteger centerOffset = ((height / 2) * width + (width / 2)) * 4;
+    XCTAssertTrue(rgba[centerOffset] != 0 || rgba[centerOffset + 1] != 0 ||
+                  rgba[centerOffset + 2] != 0,
+                  @"Expected a colored triangle at the render-target center.");
+    XCTAssertEqual(rgba[centerOffset + 3], (unsigned char)255);
+
+    // The outer corner is outside the triangle and should retain the clear color.
+    XCTAssertEqual(rgba[0], (unsigned char)0);
+    XCTAssertEqual(rgba[1], (unsigned char)0);
+    XCTAssertEqual(rgba[2], (unsigned char)0);
+    XCTAssertEqual(rgba[3], (unsigned char)255);
 }
 
 - (void)testEngineHostFrameClockPauseResumeAndClamping

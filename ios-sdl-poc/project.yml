@@ -62,6 +62,17 @@ targets:
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
         OTHER_CPLUSPLUSFLAGS: "$(inherited) -ffunction-sections -fdata-sections -fvisibility=hidden"
 
+  IOSMetalTriangleProbe:
+    type: library.static
+    platform: iOS
+    sources:
+      - path: Sources/IOSMetalTriangleProbe.mm
+    settings:
+      base:
+        PRODUCT_NAME: IOSMetalTriangleProbe
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+        CLANG_ENABLE_OBJC_ARC: "YES"
+
   HPL2CRCTestHost:
     type: application
     platform: iOS
@@ -89,7 +100,10 @@ targets:
       - target: HPL2CRC
       - target: HPL2Quaternion
       - target: HPL2Math
+      - target: IOSMetalTriangleProbe
       - target: HPL2CRCTestHost
+      - sdk: Metal.framework
+      - sdk: Foundation.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.example.hpl2crctests
@@ -110,6 +124,7 @@ schemes:
         HPL2CRC: all
         HPL2Quaternion: all
         HPL2Math: all
+        IOSMetalTriangleProbe: all
         HPL2CRCTestHost: all
         HPL2CRCTests: [test]
     test:

@@ -91,7 +91,7 @@ jobs:
         working-directory: ios-sdl-poc
         run: xcodegen generate --spec project.yml
 
-      - name: Compile HPL2 core-math smoke libraries for iOS device SDK (not a device run)
+      - name: Compile HPL2 math and Metal probe libraries for iOS device SDK (not a device run)
         working-directory: ios-sdl-poc
         run: >-
           xcodebuild

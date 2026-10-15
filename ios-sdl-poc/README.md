@@ -1,6 +1,6 @@
 # SDL3 iOS Touch PoC
 
-A small, asset-free iOS project used to verify SDL's iOS lifecycle, touch input, and Xcode build path before attempting to port HPL2. The `SDLTouchPoC` app remains independent of Amnesia. It now also records a clamped monotonic frame delta, pauses across background transitions, logs startup/render failures through SDL, tracks drawable pixel-size changes, and resolves separate bundle-resource and writable-data roots. Separate smoke tests compile pinned HPL2 CRC and quaternion source modules and test frame-clock and resource-file helpers; no full engine or commercial game assets are vendored.
+A small, asset-free iOS project used to verify SDL's iOS lifecycle, touch input, and Xcode build path before attempting to port HPL2. The `SDLTouchPoC` app remains independent of Amnesia. It now also records a clamped monotonic frame delta, pauses across background transitions, logs startup/render failures through SDL, tracks drawable pixel-size changes, and resolves separate bundle-resource and writable-data roots. Separate smoke tests compile pinned HPL2 CRC, quaternion, and matrix source modules, exercise frame-clock/resource helpers, and configure an asset-free Metal triangle probe; no full engine or commercial game assets are vendored.
 
 The app fills the display with blue. Holding a touch changes it to red-orange; lifting or cancelling the touch restores blue. An `SDL_AddEventWatch` callback pauses drawing on background lifecycle events, resumes after foreground activation, and marks termination; atomic flags safely bridge SDL's possibly cross-thread watcher to the main frame callback. `EngineHostCore` computes monotonic frame deltas clamped to 250 ms and resets timing over suspension; this is a reusable timing foundation, not yet connected to HPL2 simulation. SDL supplies the app-bundle resource root and the separate app-writable data root, which are logged at startup.
 
@@ -20,7 +20,9 @@ The next tests exercise `Quaternion.cpp`, an HPL2 rotation component used by the
 
 `HPL2Math` compiles the upstream `Math.cpp` and `MathTypes.cpp`. Their compiler-discovered closure has 18 HPL2 headers, including `Frustum.h` and `VertexBuffer.h`; the isolated smoke target does not add renderer or platform implementation sources. Its test calls HPL2's own `cMath::MatrixTranslate`, `MatrixRotateZ`, and `MatrixMul` to assert translation and the positive-Z X-to-Y convention. No transform implementation is copied into the test.
 
-GitHub Actions compiles the CRC, Quaternion, and Math static libraries for the iOS device SDK and runs seven CRC, Quaternion, matrix, frame-clock, and resource-access XCTest methods on an **iOS Simulator**. This is not a physical-iPhone test and does not initialize HPL2, its renderer, or the Amnesia game. The upstream implementation carries GPL-3.0 notices; preserve them and account for that license if distributing a combined binary.
+The standalone `IOSMetalTriangleProbe` is a separate graphics experiment: it creates a Metal device, runtime-compiles embedded MSL, clears an offscreen RGBA8 texture, draws a triangle, and reads pixels back for XCTest assertions. It is not connected to HPL2's GL-coupled renderer or the SDL PoC app, and does not render an Amnesia scene; the next Simulator run must validate it before any graphics result is claimed.
+
+GitHub Actions compiles the CRC, Quaternion, and Math static libraries plus the Metal probe for the iOS device SDK and runs eight CRC, Quaternion, matrix, Metal-probe, frame-clock, and resource-access XCTest methods on an **iOS Simulator**. This is not a physical-iPhone test and does not initialize HPL2, its renderer, or the Amnesia game. The upstream implementation carries GPL-3.0 notices; preserve them and account for that license if distributing a combined binary.
 
 ## Build locally on a Mac
 
@@ -100,16 +102,17 @@ To use another Xcode version or signing identity, change the Xcode project/build
 
 ## GitHub Actions
 
-The repository-root workflow at `.github/workflows/ios-sdl-poc.yml` runs on `macos-15`. It preserves the SDL3 device and simulator builds, compiles the HPL2 CRC, Quaternion, and Math static libraries for the iOS device SDK, then runs the CRC, Quaternion, matrix, frame-clock, and resource-access tests on an available iPhone Simulator. It is configured to upload the Simulator `.xcresult` bundle (including on test failure), and packages/uploads the unsigned SDL app IPA and app products.
+The repository-root workflow at `.github/workflows/ios-sdl-poc.yml` runs on `macos-15`. It preserves the SDL3 device and simulator builds, compiles the HPL2 CRC, Quaternion, and Math libraries plus the Metal probe for the iOS device SDK, then runs CRC, Quaternion, matrix, Metal-probe, frame-clock, and resource-access tests on an available iPhone Simulator. It is configured to upload the Simulator `.xcresult` bundle (including on test failure), and packages/uploads the unsigned SDL app IPA and app products.
 
-GitHub Actions does not attach a physical iPhone. HPL2 CRC and Quaternion execution is simulator-only; the iOS device-SDK step compiles the libraries but does not run them on hardware. The workflow does not boot HPL2 or render an Amnesia scene. The SDL device app artifact remains unsigned and is not installable until signed with a valid Apple identity and matching provisioning profile. TestFlight distribution additionally requires Apple Developer Program membership. When a published GitHub Release exists, the workflow also attaches the SDL IPA to the latest release; it never creates a release.
+GitHub Actions does not attach a physical iPhone. HPL2 CRC, Quaternion, and matrix execution is simulator-only; the iOS device-SDK step compiles the libraries but does not run them on hardware. The workflow does not boot HPL2 or render an Amnesia scene. The SDL device app artifact remains unsigned and is not installable until signed with a valid Apple identity and matching provisioning profile. TestFlight distribution additionally requires Apple Developer Program membership. When a published GitHub Release exists, the workflow also attaches the SDL IPA to the latest release; it never creates a release.
 
 ## Files
 
 - `Sources/main.c` — SDL renderer, touch/lifecycle handling, app path setup, and structured diagnostics.
 - `Sources/EngineHostCore.[ch]` — portable monotonic frame-clock helper used by the host and tested with deterministic timestamps.
 - `Sources/EngineResourceAccess.[ch]` — UTF-8 relative-path construction and file reads with explicit error statuses.
-- `Tests/` — isolated HPL2 CRC/Quaternion, frame-clock, and resource-access XCTest coverage.
+- `Sources/IOSMetalTriangleProbe.[h/mm]` — standalone Metal offscreen clear/triangle/readback probe; not an HPL2 renderer.
+- `Tests/` — isolated HPL2 CRC/Quaternion/matrix, Metal-probe, frame-clock, and resource-access XCTest coverage.
 - `project.yml` — XcodeGen definitions for the SDL app and HPL2 core-math smoke targets.
 - `Info.plist` — launch-screen and full-screen configuration.
 - `scripts/fetch-sdl.sh` — pinned SDL release download, hash verification, and xcframework extraction.

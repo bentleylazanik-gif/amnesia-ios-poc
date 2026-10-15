@@ -78,7 +78,7 @@ SDL_AppResult SDLCALL SDL_AppInit(void **appstate, int argc, char *argv[])
 
     EngineHostFrameClockInit(&app_state.frame_clock, SDL_GetTicksNS());
     app_state.bundle_resource_root = SDL_GetBasePath();
-    app_state.writable_data_root = SDL_GetPrefPath("org.example", "Amnesia");
+    app_state.writable_data_root = SDL_GetPrefPath("Amnesia", "The Dark Descent");
     if (app_state.bundle_resource_root == NULL || app_state.writable_data_root == NULL) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "Could not resolve app bundle or writable data directory: %s",
