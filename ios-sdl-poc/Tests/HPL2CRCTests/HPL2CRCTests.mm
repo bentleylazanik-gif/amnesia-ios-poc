@@ -1,6 +1,7 @@
 #import <XCTest/XCTest.h>
 
 #include "math/CRC.h"
+#include "math/Math.h"
 #include "math/Quaternion.h"
 #include "EngineHostCore.h"
 #include "EngineResourceAccess.h"
@@ -115,6 +116,27 @@
     }
     XCTAssertGreaterThan(std::fabs(xAfterZMatrix.m[0][1] -
                                     zAfterXMatrix.m[0][1]), 0.5f);
+}
+
+- (void)testHPL2MatrixTranslationAndRotationConvention
+{
+    const float pi = 3.14159265358979323846f;
+
+    const hpl::cMatrixf translation =
+        hpl::cMath::MatrixTranslate(hpl::cVector3f(2.0f, 3.0f, 4.0f));
+    const hpl::cVector3f translated = hpl::cMath::MatrixMul(
+        translation, hpl::cVector3f(1.0f, 0.0f, -1.0f));
+    XCTAssertEqualWithAccuracy(translated.x, 3.0f, 1e-5f);
+    XCTAssertEqualWithAccuracy(translated.y, 3.0f, 1e-5f);
+    XCTAssertEqualWithAccuracy(translated.z, 3.0f, 1e-5f);
+
+    // HPL2's positive Z quarter-turn sends the positive X basis to positive Y.
+    const hpl::cMatrixf rotateZ = hpl::cMath::MatrixRotateZ(pi / 2.0f);
+    const hpl::cVector3f rotated = hpl::cMath::MatrixMul(
+        rotateZ, hpl::cVector3f(1.0f, 0.0f, 0.0f));
+    XCTAssertEqualWithAccuracy(rotated.x, 0.0f, 1e-5f);
+    XCTAssertEqualWithAccuracy(rotated.y, 1.0f, 1e-5f);
+    XCTAssertEqualWithAccuracy(rotated.z, 0.0f, 1e-5f);
 }
 
 - (void)testEngineHostFrameClockPauseResumeAndClamping

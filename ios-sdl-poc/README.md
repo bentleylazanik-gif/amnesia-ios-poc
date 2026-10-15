@@ -12,13 +12,15 @@ The script requires macOS tools (`hdiutil`, `ditto`, `shasum`) and `curl`. It ne
 
 ## HPL2 core-math smoke tests
 
-The separate `HPL2CRC` and `HPL2Quaternion` static libraries compile real HPL2 code from **FrictionalGames/AmnesiaTheDarkDescent** at pinned commit `acc95cdedd6c94db89dc924eb9afa23185df562f`. This is the inspected upstream revision; pinning its SHA prevents CI from silently following a moving branch. Only selected implementation files and their compile-time header closure are sparsely checked out and staged under ignored `EngineSource/` for the build. No full engine, desktop dependency binaries, FBX SDK, or game assets are added to this repository or uploaded as an artifact.
+The separate `HPL2CRC`, `HPL2Quaternion`, and `HPL2Math` static libraries compile real HPL2 code from **FrictionalGames/AmnesiaTheDarkDescent** at pinned commit `acc95cdedd6c94db89dc924eb9afa23185df562f`. This is the inspected upstream revision; pinning its SHA prevents CI from silently following a moving branch. Only selected implementation files and their compile-time header closure are sparsely checked out and staged under ignored `EngineSource/` for the build. No full engine, desktop dependency binaries, FBX SDK, or game assets are added to this repository or uploaded as an artifact.
 
 The first test exercises `CRC.cpp`: CRC of `123456789` with key `0x04C11DB7` must be `0x89A1897F`; it also compares byte-wise input with `PutData()` and checks `Done()` reset behavior. `CRC.cpp` includes only `math/CRC.h`, whose only include is `<cstddef>`.
 
-The next test exercises `Quaternion.cpp`, an HPL2 rotation component used by the engine's math/camera transforms. Its compiler-discovered header closure includes HPL2 math, graphics-type, and system-type headers (`Math.h`, `MathTypes.h`, `Matrix.h`, vectors, `BoundingVolume.h`, `GraphicsTypes.h`, `Color.h`, and low-level/system declarations), but no platform implementation or external library. The test verifies that a normalized 90-degree Z-axis rotation maps X to Y, that composing it twice maps X to -X, and that quaternion/matrix round-tripping preserves the rotation.
+The next tests exercise `Quaternion.cpp`, an HPL2 rotation component used by the engine's math/camera transforms. Its compiler-discovered header closure includes HPL2 math, graphics-type, and system-type headers (`Math.h`, `MathTypes.h`, `Matrix.h`, vectors, `BoundingVolume.h`, `GraphicsTypes.h`, `Color.h`, and low-level/system declarations), but no platform implementation or external library. Assertions cover a normalized 90-degree Z-axis rotation, same-axis composition, matrix round-tripping, identity/normalization, and noncommuting X/Z rotation products against HPL2's Hamilton multiplication order.
 
-GitHub Actions compiles the CRC and Quaternion static libraries for the iOS device SDK and runs six CRC, Quaternion, frame-clock, and resource-access XCTest methods on an **iOS Simulator**. This is not a physical-iPhone test and does not initialize HPL2, its renderer, or the Amnesia game. The upstream implementation carries GPL-3.0 notices; preserve them and account for that license if distributing a combined binary.
+`HPL2Math` compiles the upstream `Math.cpp` and `MathTypes.cpp`. Their compiler-discovered closure has 18 HPL2 headers, including `Frustum.h` and `VertexBuffer.h`; the isolated smoke target does not add renderer or platform implementation sources. Its test calls HPL2's own `cMath::MatrixTranslate`, `MatrixRotateZ`, and `MatrixMul` to assert translation and the positive-Z X-to-Y convention. No transform implementation is copied into the test.
+
+GitHub Actions compiles the CRC, Quaternion, and Math static libraries for the iOS device SDK and runs seven CRC, Quaternion, matrix, frame-clock, and resource-access XCTest methods on an **iOS Simulator**. This is not a physical-iPhone test and does not initialize HPL2, its renderer, or the Amnesia game. The upstream implementation carries GPL-3.0 notices; preserve them and account for that license if distributing a combined binary.
 
 ## Build locally on a Mac
 
@@ -36,7 +38,9 @@ UPSTREAM_DIR=.build/upstream-amnesia
 UPSTREAM_FILES=(
   HPL2/core/include/graphics/Color.h
   HPL2/core/include/graphics/GraphicsTypes.h
+  HPL2/core/include/graphics/VertexBuffer.h
   HPL2/core/include/math/BoundingVolume.h
+  HPL2/core/include/math/Frustum.h
   HPL2/core/include/math/CRC.h
   HPL2/core/include/math/Math.h
   HPL2/core/include/math/MathTypes.h
@@ -51,6 +55,8 @@ UPSTREAM_FILES=(
   HPL2/core/include/system/SerializeClass.h
   HPL2/core/include/system/SystemTypes.h
   HPL2/core/sources/math/CRC.cpp
+  HPL2/core/sources/math/Math.cpp
+  HPL2/core/sources/math/MathTypes.cpp
   HPL2/core/sources/math/Quaternion.cpp
 )
 git clone --filter=blob:none --no-checkout \
@@ -94,7 +100,7 @@ To use another Xcode version or signing identity, change the Xcode project/build
 
 ## GitHub Actions
 
-The repository-root workflow at `.github/workflows/ios-sdl-poc.yml` runs on `macos-15`. It preserves the SDL3 device and simulator builds, compiles the HPL2 CRC and Quaternion static libraries for the iOS device SDK, then runs the CRC, Quaternion, frame-clock, and resource-access tests on an available iPhone Simulator. It is configured to upload the Simulator `.xcresult` bundle (including on test failure), and packages/uploads the unsigned SDL app IPA and app products.
+The repository-root workflow at `.github/workflows/ios-sdl-poc.yml` runs on `macos-15`. It preserves the SDL3 device and simulator builds, compiles the HPL2 CRC, Quaternion, and Math static libraries for the iOS device SDK, then runs the CRC, Quaternion, matrix, frame-clock, and resource-access tests on an available iPhone Simulator. It is configured to upload the Simulator `.xcresult` bundle (including on test failure), and packages/uploads the unsigned SDL app IPA and app products.
 
 GitHub Actions does not attach a physical iPhone. HPL2 CRC and Quaternion execution is simulator-only; the iOS device-SDK step compiles the libraries but does not run them on hardware. The workflow does not boot HPL2 or render an Amnesia scene. The SDL device app artifact remains unsigned and is not installable until signed with a valid Apple identity and matching provisioning profile. TestFlight distribution additionally requires Apple Developer Program membership. When a published GitHub Release exists, the workflow also attaches the SDL IPA to the latest release; it never creates a release.
 

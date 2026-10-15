@@ -32,7 +32,9 @@ jobs:
           UPSTREAM_FILES=(
             HPL2/core/include/graphics/Color.h
             HPL2/core/include/graphics/GraphicsTypes.h
+            HPL2/core/include/graphics/VertexBuffer.h
             HPL2/core/include/math/BoundingVolume.h
+            HPL2/core/include/math/Frustum.h
             HPL2/core/include/math/CRC.h
             HPL2/core/include/math/Math.h
             HPL2/core/include/math/MathTypes.h
@@ -47,6 +49,8 @@ jobs:
             HPL2/core/include/system/SerializeClass.h
             HPL2/core/include/system/SystemTypes.h
             HPL2/core/sources/math/CRC.cpp
+            HPL2/core/sources/math/Math.cpp
+            HPL2/core/sources/math/MathTypes.cpp
             HPL2/core/sources/math/Quaternion.cpp
           )
 
