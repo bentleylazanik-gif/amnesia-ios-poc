@@ -57,8 +57,7 @@ git clone --filter=blob:none --no-checkout \
   https://github.com/FrictionalGames/AmnesiaTheDarkDescent.git \
   "${UPSTREAM_DIR}"
 git -C "${UPSTREAM_DIR}" sparse-checkout init --no-cone
-git -C "${UPSTREAM_DIR}" sparse-checkout set --no-cone \
-  "${UPSTREAM_FILES[@]/#/\/}"
+git -C "${UPSTREAM_DIR}" sparse-checkout set --no-cone "${UPSTREAM_FILES[@]}"
 git -C "${UPSTREAM_DIR}" checkout --detach "${UPSTREAM_SHA}"
 for relative_path in "${UPSTREAM_FILES[@]}"; do
   destination="EngineSource/${relative_path}"

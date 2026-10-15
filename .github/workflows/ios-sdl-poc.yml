@@ -54,8 +54,7 @@ jobs:
             https://github.com/FrictionalGames/AmnesiaTheDarkDescent.git \
             "${UPSTREAM_DIR}"
           git -C "${UPSTREAM_DIR}" sparse-checkout init --no-cone
-          git -C "${UPSTREAM_DIR}" sparse-checkout set --no-cone \
-            "${UPSTREAM_FILES[@]/#/\/}"
+          git -C "${UPSTREAM_DIR}" sparse-checkout set --no-cone "${UPSTREAM_FILES[@]}"
           git -C "${UPSTREAM_DIR}" checkout --detach "${UPSTREAM_SHA}"
 
           ACTUAL_SHA="$(git -C "${UPSTREAM_DIR}" rev-parse HEAD)"
