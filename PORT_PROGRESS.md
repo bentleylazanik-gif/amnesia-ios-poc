@@ -2,39 +2,37 @@
 
 Last updated: 2026-10-15
 
-## Verified baseline
+## Verified repository baseline
 
-- Repository: `bentleylazanik-gif/amnesia-ios-poc`, branch `main`; current remote baseline: `548027b` (`Generate Info.plist for HPL2 CRC tests`).
-- The owner reports the standalone SDL3 3.4.18 app builds, signs, installs, and runs on an iPhone 11 Pro; its blue screen changes to red when tapped. Its code is preserved.
-- GitHub Actions run `38686449022` for `548027b` passed the CRC XCTest on an iOS Simulator and compiled CRC for the iOS device SDK. It was not an HPL2 physical-device run.
-- Upstream source pin: `acc95cdedd6c94db89dc924eb9afa23185df562f`. No commercial game assets are present or included.
+- Repository: `bentleylazanik-gif/amnesia-ios-poc`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
+- Before the latest work, GitHub `main` was `6f587c6` (`Add HPL2 quaternion smoke test`). That commit contains the SDL3 PoC and CRC/Quaternion test targets.
+- The last known passing Actions run before Quaternion was run `38686449022` on `548027b`: CRC compiled for the iOS device SDK and its XCTest passed on an iOS Simulator. It was not a physical-device HPL2 test.
+- Actions run `38741245297` on `6f587c6` failed in the upstream sparse-source staging step before Xcode ran. Exact error: `Pinned upstream file is missing: HPL2/core/include/graphics/Color.h`.
+- The owner reports that the separate SDL3 3.4.18 app was built, signed, installed, and run on an iPhone 11 Pro; tapping changes its blue screen to red. Its app source is preserved.
+- Upstream Amnesia is pinned at `acc95cdedd6c94db89dc924eb9afa23185df562f`. No commercial game assets are included.
 
-## Current milestone: HPL2 quaternion transform math
+## Current milestone: HPL2 quaternion transforms
 
-Add HPL2's real `Quaternion.cpp` after CRC as a math primitive used by camera/object transform paths. XCTest assertions cover a 90-degree Z-axis rotation (X to Y), composing two turns (X to -X), and matrix-to-quaternion-to-matrix consistency. This is not an HPL2 boot or renderer/scene test.
+Keep CRC and add the real `Quaternion.cpp` rotation implementation as a math step toward camera/object transforms. The test covers a 90-degree Z rotation, two-turn composition, and quaternion/matrix round-tripping. This is not HPL2 boot, renderer integration, scene loading, or an Amnesia game run.
 
-## Proposed changes
+## Changes made in this session
 
-- Extend the upstream sparse checkout to the Quaternion implementation plus only its compiler-discovered HPL2 header closure, staged transiently under ignored `EngineSource/`.
-- Add an `HPL2Quaternion` static library and quaternion XCTest alongside CRC. The existing `HPL2CRCSmoke` scheme builds both libraries and the Simulator suite.
-- Update workflow/README and keep this recovery log current. The SDLTouchPoC target and its source remain unchanged.
-- No full engine, desktop dependency binaries, FBX SDK, or game assets are added.
+- Fixed the sparse-checkout pattern bug: the old Bash prefix substitution produced backslash-prefixed paths, leaving the requested upstream files absent. The workflow now passes repository-relative paths directly and stages only the selected HPL2 math source/header closure.
+- Added `HPL2Quaternion` as a separate static library; added quaternion assertions alongside the existing CRC XCTest.
+- Updated README and this progress log. Existing SDL3 app source and build steps remain unchanged.
+- Local commit `2134862` contains the sparse-checkout correction and quaternion milestone notes. It is currently local/unpushed relative to `origin/main` (which remains `6f587c6`).
 
-## Attempts and results
+## Dependency and test evidence
 
-- Inspected `Quaternion.cpp` and its headers. `g++ -MM` found a 16-header closure across math, graphics-type, and system declarations. The implementation has no platform API or third-party link dependency.
-- The earlier Action run `38741245297` failed before Xcode: its sparse-checkout expansion emitted escaped-slash patterns, so `Color.h` was not materialized. The staging code now passes the path array directly, without prefix substitution. A local rerun against the pinned upstream SHA materialized exactly the 18 selected files (2 implementation files and 16 headers).
-- A Linux host compile using the exact staged CRC and Quaternion sources passed: CRC known vector `0x89A1897F`, Quaternion 90-degree rotation, two-turn composition, and matrix round-trip.
-- Workflow and project YAML parse, the host Info.plist parses, workflow and README Bash blocks pass `bash -n`, `git diff --check` passes, and the two existing SDL device/Simulator build commands are unchanged.
-- AQ has no `xcodebuild`, XcodeGen, or `xcrun`. Thus the current iOS device-SDK build and Simulator XCTest have not run in Actions yet; do not claim those new tests pass. The latest Actions pass remains CRC-only run `38686449022`.
+- `Quaternion.cpp` includes `Math.h` and `LowLevelSystem.h`; a compiler dependency scan found 16 HPL2 headers across math, graphics-type, and system declarations. The implementation has no platform API or external library link references.
+- The sparse source staging command was exercised in a temporary directory and checked out exactly 18 upstream files at the pinned SHA (CRC + Quaternion and the header closure), with no desktop dependencies or assets.
+- Linux host C++ compilation/execution of the pinned CRC and Quaternion sources passed: CRC `0x89A1897F`, Z-axis rotation, two-turn composition, and matrix round-trip. An initial harness used aliases not declared by `Quaternion.h` alone; correcting it to `cVector3<float>` and `cMatrix<float>` made the test pass. This is host-only evidence, not an iOS build.
+- Workflow and project YAML, host plist, Bash syntax, README shell syntax, and `git diff --check` passed. The two existing SDL device/Simulator build command bodies are unchanged.
+- The AQ workspace is Linux and lacks `xcodebuild`, XcodeGen, and `xcrun`. The current HPL2 device-SDK build and Simulator XCTest have not run in Actions yet. Do not claim the Quaternion iOS test has passed.
 
-## Recovery and current worktree
+## Recovery and next action
 
-- Worktree: `/tmp/tmp.VZQPoiHQ4P`; origin: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Last known committed baseline: `548027b`. The current SDL3 app, CRC test, and pinned-source baseline are preserved.
-- Proposed files: `.github/workflows/ios-sdl-poc.yml`, `ios-sdl-poc/project.yml`, `ios-sdl-poc/Tests/HPL2CRCTests/HPL2CRCTests.mm`, `ios-sdl-poc/README.md`, and `PORT_PROGRESS.md`.
-- Do not reset or clean. Keep EngineSource staging ignored and transient; do not add proprietary assets.
-
-## Next action
-
-The owner has authorized incremental commits/pushes after validation. Commit and push this tested host-source milestone, then inspect the resulting Actions run for both the `iphoneos` library build and Simulator tests. If they pass, move toward HPL2 matrix/frustum or camera view-projection math, followed by a minimal iOS graphics backend. No HPL2 scene is rendered yet.
+- Worktree: `/tmp/tmp.VZQPoiHQ4P`. Preserve all current files; do not reset or clean.
+- Keep `ios-sdl-poc/Sources/main.c`, CRC tests, and `SDLTouchPoC` project target unchanged. `EngineSource/` is ignored scratch; only pinned math files are staged during CI.
+- The owner has authorized pushing verified changes. Push local commit `2134862` to run Actions, then inspect the run logs for device-SDK compilation and both Simulator XCTest methods. If they pass, update this log and the next milestone can test matrix/frustum or camera view-projection math before attempting an iOS graphics backend.
+- No HPL2 scene has been rendered on Simulator or iPhone. Renderer/platform/resource adaptation and legitimate private game data remain future work.
