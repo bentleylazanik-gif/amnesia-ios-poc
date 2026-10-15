@@ -111,12 +111,24 @@ jobs:
             exit 1
           fi
           echo "::notice::Running XCTest on iOS Simulator ${SIMULATOR_UDID}; this is not a physical-device test."
+          RESULT_BUNDLE="${RUNNER_TEMP}/HPL2CRCSmoke.xcresult"
+          rm -rf "${RESULT_BUNDLE}"
           xcodebuild test \
             -project SDLTouchPoC.xcodeproj \
             -scheme HPL2CRCSmoke \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
-            -derivedDataPath .build/HPL2CRCSimulator
+            -derivedDataPath .build/HPL2CRCSimulator \
+            -resultBundlePath "${RESULT_BUNDLE}"
+
+      - name: Upload Simulator XCTest result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HPL2-iOS-Simulator-XCTest-results
+          path: ${{ runner.temp }}/HPL2CRCSmoke.xcresult
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Build for iOS devices (unsigned)
         working-directory: ios-sdl-poc

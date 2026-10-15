@@ -94,7 +94,7 @@ To use another Xcode version or signing identity, change the Xcode project/build
 
 ## GitHub Actions
 
-The repository-root workflow at `.github/workflows/ios-sdl-poc.yml` runs on `macos-15`. It preserves the SDL3 device and simulator builds, compiles the HPL2 CRC and Quaternion static libraries for the iOS device SDK, then runs the CRC, Quaternion, frame-clock, and resource-access tests on an available iPhone Simulator. It also packages and uploads the unsigned SDL app IPA and uploads the app products.
+The repository-root workflow at `.github/workflows/ios-sdl-poc.yml` runs on `macos-15`. It preserves the SDL3 device and simulator builds, compiles the HPL2 CRC and Quaternion static libraries for the iOS device SDK, then runs the CRC, Quaternion, frame-clock, and resource-access tests on an available iPhone Simulator. It is configured to upload the Simulator `.xcresult` bundle (including on test failure), and packages/uploads the unsigned SDL app IPA and app products.
 
 GitHub Actions does not attach a physical iPhone. HPL2 CRC and Quaternion execution is simulator-only; the iOS device-SDK step compiles the libraries but does not run them on hardware. The workflow does not boot HPL2 or render an Amnesia scene. The SDL device app artifact remains unsigned and is not installable until signed with a valid Apple identity and matching provisioning profile. TestFlight distribution additionally requires Apple Developer Program membership. When a published GitHub Release exists, the workflow also attaches the SDL IPA to the latest release; it never creates a release.
 

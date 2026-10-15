@@ -38,9 +38,9 @@ static bool SDLCALL AppLifecycleEventWatch(void *userdata, SDL_Event *event)
         atomic_store(&app->paused, true);
         break;
     case SDL_EVENT_DID_ENTER_FOREGROUND:
+        atomic_store(&app->clock_reset_pending, true);
         atomic_store(&app->paused, false);
         atomic_store(&app->touching, false);
-        atomic_store(&app->clock_reset_pending, true);
         break;
     case SDL_EVENT_TERMINATING:
         atomic_store(&app->terminating, true);
