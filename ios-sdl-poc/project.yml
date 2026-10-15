@@ -17,6 +17,9 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: Sources
+        excludes:
+          - IOSMetalTriangleProbe.h
+          - IOSMetalTriangleProbe.mm
     info:
       path: Info.plist
     dependencies:
