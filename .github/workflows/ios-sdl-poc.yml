@@ -61,6 +61,52 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
           build
 
+      - name: Package unsigned iOS device app as IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_PATH="ios-sdl-poc/.build/DerivedData/Build/Products/Debug-iphoneos/SDLTouchPoC.app"
+          APP_EXECUTABLE="${APP_PATH}/SDLTouchPoC"
+          IPA_PATH="ios-sdl-poc/.build/SDLTouchPoC-unsigned.ipa"
+          STAGING_DIR="${RUNNER_TEMP}/SDLTouchPoC-ipa"
+
+          if [[ ! -d "${APP_PATH}" ]]; then
+            echo "::error::Missing iOS device app bundle: ${APP_PATH}"
+            exit 1
+          fi
+          if [[ ! -f "${APP_EXECUTABLE}" || ! -x "${APP_EXECUTABLE}" ]]; then
+            echo "::error::Missing or non-executable app binary: ${APP_EXECUTABLE}"
+            exit 1
+          fi
+
+          rm -rf "${STAGING_DIR}"
+          mkdir -p "${STAGING_DIR}/Payload" "$(dirname "${IPA_PATH}")"
+          ditto "${APP_PATH}" "${STAGING_DIR}/Payload/SDLTouchPoC.app"
+          rm -f "${IPA_PATH}"
+          (
+            cd "${STAGING_DIR}"
+            /usr/bin/zip -qry "${GITHUB_WORKSPACE}/${IPA_PATH}" Payload
+          )
+
+          CONTENTS_FILE="${RUNNER_TEMP}/SDLTouchPoC-ipa-contents.txt"
+          /usr/bin/unzip -Z1 "${IPA_PATH}" > "${CONTENTS_FILE}"
+          if ! grep -Fxq "Payload/SDLTouchPoC.app/SDLTouchPoC" "${CONTENTS_FILE}"; then
+            echo "::error::Packaged IPA is missing Payload/SDLTouchPoC.app/SDLTouchPoC"
+            exit 1
+          fi
+          if grep -q "Debug-iphonesimulator" "${CONTENTS_FILE}"; then
+            echo "::error::Simulator files were unexpectedly included in the IPA"
+            exit 1
+          fi
+
+      - name: Upload unsigned device IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDLTouchPoC-unsigned-ipa
+          path: ios-sdl-poc/.build/SDLTouchPoC-unsigned.ipa
+          if-no-files-found: error
+
       - name: Upload compiled app products
         uses: actions/upload-artifact@v4
         with:
