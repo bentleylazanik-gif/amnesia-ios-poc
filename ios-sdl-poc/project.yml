@@ -25,3 +25,59 @@ targets:
     settings:
       base:
         PRODUCT_NAME: SDLTouchPoC
+
+  HPL2CRC:
+    type: library.static
+    platform: iOS
+    sources:
+      - path: EngineSource/HPL2/core/sources/math/CRC.cpp
+    settings:
+      base:
+        PRODUCT_NAME: HPL2CRC
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include"
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+
+  HPL2CRCTestHost:
+    type: application
+    platform: iOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Tests/HPL2CRCTestHost/main.m
+    info:
+      path: Tests/HPL2CRCTestHost/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.example.hpl2crctesthost
+        PRODUCT_NAME: HPL2CRCTestHost
+
+  HPL2CRCTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Tests/HPL2CRCTests/HPL2CRCTests.mm
+    dependencies:
+      - target: HPL2CRC
+      - target: HPL2CRCTestHost
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.example.hpl2crctests
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include"
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/HPL2CRCTestHost.app/HPL2CRCTestHost"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  SDLTouchPoC:
+    build:
+      targets:
+        SDLTouchPoC: all
+  HPL2CRCSmoke:
+    build:
+      targets:
+        HPL2CRC: all
+        HPL2CRCTestHost: all
+        HPL2CRCTests: [test]
+    test:
+      targets:
+        - HPL2CRCTests

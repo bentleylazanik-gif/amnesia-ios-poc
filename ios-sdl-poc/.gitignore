@@ -1,3 +1,4 @@
 .build/
 Vendor/SDL3.xcframework/
+EngineSource/
 SDLTouchPoC.xcodeproj/

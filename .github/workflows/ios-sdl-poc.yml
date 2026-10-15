@@ -23,6 +23,37 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Check out and stage the pinned HPL2 CRC source
+        shell: bash
+        run: |
+          set -euo pipefail
+          UPSTREAM_DIR="${RUNNER_TEMP}/amnesia-upstream"
+          UPSTREAM_SHA="acc95cdedd6c94db89dc924eb9afa23185df562f"
+
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/FrictionalGames/AmnesiaTheDarkDescent.git \
+            "${UPSTREAM_DIR}"
+          git -C "${UPSTREAM_DIR}" sparse-checkout init --no-cone
+          git -C "${UPSTREAM_DIR}" sparse-checkout set --no-cone \
+            '/HPL2/core/include/math/CRC.h' \
+            '/HPL2/core/sources/math/CRC.cpp'
+          git -C "${UPSTREAM_DIR}" checkout --detach "${UPSTREAM_SHA}"
+
+          ACTUAL_SHA="$(git -C "${UPSTREAM_DIR}" rev-parse HEAD)"
+          if [[ "${ACTUAL_SHA}" != "${UPSTREAM_SHA}" ]]; then
+            echo "::error::Expected upstream ${UPSTREAM_SHA}, checked out ${ACTUAL_SHA}"
+            exit 1
+          fi
+
+          mkdir -p ios-sdl-poc/EngineSource/HPL2/core/include/math
+          mkdir -p ios-sdl-poc/EngineSource/HPL2/core/sources/math
+          cp "${UPSTREAM_DIR}/HPL2/core/include/math/CRC.h" \
+            ios-sdl-poc/EngineSource/HPL2/core/include/math/CRC.h
+          cp "${UPSTREAM_DIR}/HPL2/core/sources/math/CRC.cpp" \
+            ios-sdl-poc/EngineSource/HPL2/core/sources/math/CRC.cpp
+          test -f ios-sdl-poc/EngineSource/HPL2/core/include/math/CRC.h
+          test -f ios-sdl-poc/EngineSource/HPL2/core/sources/math/CRC.cpp
+
       - name: Show Xcode version
         run: xcodebuild -version
 
@@ -36,6 +67,36 @@ jobs:
       - name: Generate Xcode project
         working-directory: ios-sdl-poc
         run: xcodegen generate --spec project.yml
+
+      - name: Compile HPL2 CRC for the iOS device SDK (not a device run)
+        working-directory: ios-sdl-poc
+        run: >-
+          xcodebuild
+          -project SDLTouchPoC.xcodeproj
+          -target HPL2CRC
+          -configuration Debug
+          -sdk iphoneos
+          -derivedDataPath .build/HPL2CRCDevice
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Run HPL2 CRC XCTest on iOS Simulator (not a physical iPhone)
+        working-directory: ios-sdl-poc
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIMULATOR_UDID="$(xcrun simctl list devices available -j | python3 -c 'import json, sys; d=json.load(sys.stdin)["devices"]; print(next((x["udid"] for runtime in sorted(d, reverse=True) for x in d[runtime] if x.get("isAvailable") and x.get("name", "").startswith("iPhone")), ""))')"
+          if [[ -z "${SIMULATOR_UDID}" ]]; then
+            echo "::error::No available iPhone Simulator device was found on this runner"
+            exit 1
+          fi
+          echo "::notice::Running XCTest on iOS Simulator ${SIMULATOR_UDID}; this is not a physical-device test."
+          xcodebuild test \
+            -project SDLTouchPoC.xcodeproj \
+            -scheme HPL2CRCSmoke \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath .build/HPL2CRCSimulator
 
       - name: Build for iOS devices (unsigned)
         working-directory: ios-sdl-poc
