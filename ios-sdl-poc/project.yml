@@ -69,8 +69,8 @@ targets:
       - path: Tests/HPL2CRCTests/HPL2CRCTests.mm
       - path: Sources/EngineHostCore.c
       - path: Sources/EngineResourceAccess.c
-    resources:
       - path: Tests/Fixtures/bundle-fixture.txt
+        buildPhase: resources
     dependencies:
       - target: HPL2CRC
       - target: HPL2Quaternion

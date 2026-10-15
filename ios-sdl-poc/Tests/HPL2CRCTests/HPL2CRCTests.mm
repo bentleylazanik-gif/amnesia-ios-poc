@@ -5,6 +5,7 @@
 #include "EngineHostCore.h"
 #include "EngineResourceAccess.h"
 
+#include <cmath>
 #include <cstring>
 
 @interface HPL2CRCTests : XCTestCase
@@ -65,6 +66,55 @@
                                        quarterTurnMatrix.m[row][column], 1e-5f);
         }
     }
+}
+
+- (void)testQuaternionNormalizationIdentityAndMultiplicationOrder
+{
+    const float pi = 3.14159265358979323846f;
+    const float tolerance = 1e-5f;
+
+    hpl::cQuaternion nonUnit(2.0f, 0.0f, 0.0f, 0.0f);
+    nonUnit.Normalize();
+    XCTAssertEqualWithAccuracy(nonUnit.w, 1.0f, tolerance);
+    XCTAssertEqualWithAccuracy(nonUnit.v.x, 0.0f, tolerance);
+    XCTAssertEqualWithAccuracy(nonUnit.v.y, 0.0f, tolerance);
+    XCTAssertEqualWithAccuracy(nonUnit.v.z, 0.0f, tolerance);
+
+    hpl::cMatrix<float> identityMatrix;
+    hpl::cQuaternion::Identity.ToRotationMatrix(identityMatrix);
+    for (int row = 0; row < 3; ++row) {
+        for (int column = 0; column < 3; ++column) {
+            XCTAssertEqualWithAccuracy(identityMatrix.m[row][column],
+                                       row == column ? 1.0f : 0.0f, tolerance);
+        }
+    }
+
+    const hpl::cVector3<float> xAxis(1.0f, 0.0f, 0.0f);
+    const hpl::cVector3<float> zAxis(0.0f, 0.0f, 1.0f);
+    const hpl::cQuaternion rotateX(pi / 2.0f, xAxis);
+    const hpl::cQuaternion rotateZ(pi / 2.0f, zAxis);
+
+    // Upstream uses Hamilton multiplication: qA*qB applies qB, then qA.
+    const hpl::cQuaternion zAfterX = rotateZ * rotateX;
+    const hpl::cQuaternion xAfterZ = rotateX * rotateZ;
+    hpl::cMatrix<float> zAfterXMatrix;
+    hpl::cMatrix<float> xAfterZMatrix;
+    zAfterX.ToRotationMatrix(zAfterXMatrix);
+    xAfterZ.ToRotationMatrix(xAfterZMatrix);
+
+    const float expectedZAfterX[3][3] = {
+        {0.0f, 0.0f, 1.0f},
+        {1.0f, 0.0f, 0.0f},
+        {0.0f, 1.0f, 0.0f}
+    };
+    for (int row = 0; row < 3; ++row) {
+        for (int column = 0; column < 3; ++column) {
+            XCTAssertEqualWithAccuracy(zAfterXMatrix.m[row][column],
+                                       expectedZAfterX[row][column], tolerance);
+        }
+    }
+    XCTAssertGreaterThan(std::fabs(xAfterZMatrix.m[0][1] -
+                                    zAfterXMatrix.m[0][1]), 0.5f);
 }
 
 - (void)testEngineHostFrameClockPauseResumeAndClamping
