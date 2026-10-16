@@ -5,8 +5,8 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Latest pushed checkpoint before the current HPL2 trace update: local `HEAD` and `origin/main` both `79c3ac1014e94489130d3407fd230fa684df43b6`. The last CI-triggering source checkpoint is `60702b029728accdb065c0636e762291fa5423ec`; later commits only change port documentation, outside the workflow path filters.
-- No command is interrupted or still running. Current uncommitted files: `PORT_PROGRESS.md`, `PORT_TASKS.md`, and this checkpoint; these are the verified UI-run/HPL2-source-trace documentation updates.
+- Recovery verified: local `HEAD`, `origin/main`, and `git ls-remote origin refs/heads/main` all match `b696ddf66dd4a2eaf761185659e5a282612d392b`; worktree was clean at recovery.
+- No command is interrupted or running. Current task: implement a tested view/descriptor adapter for actual HPL2 vertex/index buffers, beginning with the pinned `iVertexBuffer` API and the `CreatePlane` → `RendererSimple` call path. Preserve later source edits; do not reset/clean.
 
 ## Latest verification
 
