@@ -5,10 +5,11 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Last committed source checkpoint: `14975e2d4f6f7744560117dbdb7e5ea844cb1a18` on `main`; local HEAD and origin/main matched when verified. It adds the HPL2 descriptor adapter and its tests.
-- Adapter Actions run `38861903111` was queued at checkpoint time: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38861903111. A background `gh run watch` was started through the shell tool; resume/inspect the run, do not assume it finished.
-- Current local milestone adds `HPL2MetalMeshUploader.{h,mm}`, a Metal buffer uploader and Simulator XCTest for actual buffer bytes/descriptor metadata; XcodeGen wires a separate target, excluded from the SDL app. These uploader changes and updated progress/task/session docs are uncommitted. The HPL2 source worktree remains on pinned `acc95cd...` and its pre-existing untracked staged project files are untouched.
-- Local GCC strict-warning + ASan/UBSan host smokes passed for size-bearing views and extraction from an `iVertexBuffer` test double. YAML, Bash, target membership/exclusions, and `git diff --check` passed. Xcode/XcodeGen are unavailable locally, so Obj-C++ compilation, Metal buffer XCTest, iOS SDK builds, and full Simulator UI run require Actions.
+- Last committed source checkpoint: `e739f6cf669bc0cd172aa6ccb2baed1e36a03274` on `main`; local HEAD and origin/main matched after push. It includes the descriptor adapter, Metal uploader, and Simulator test definitions.
+- Adapter Actions run `38861903111` completed successfully: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38861903111. The new adapter static library compiled for device SDK; the Simulator suite ran 14 tests (8 foundation + 6 adapter), 0 failures; app device/Simulator builds, IPA, visible triangle UI test, and artifacts passed.
+- Uploader CI run `38862662245` tests the uploader source checkpoint. It was started with a background `gh run watch`; inspect its final logs when notified.
+- Current uncommitted milestone: `HPL2MetalMatrixAdapter.{h,cpp}` converts HPL2 `m[row][column]` storage to Metal column-major and remaps OpenGL projection depth [-w,+w] to Metal [0,+w], with XCTest and XcodeGen wiring. Host GCC strict-warning + ASan/UBSan smoke passed for matrix transform and depth endpoints. This is CPU transform conversion only; Simulator CI remains pending. Preserve these changes. The HPL2 source worktree remains pinned `acc95cd...`; its pre-existing untracked staged files are untouched.
+- YAML/Bash/XcodeGen target wiring and app-source exclusions pass locally. Xcode/XcodeGen are unavailable in Linux, so matrix/uploader Obj-C++ Simulator tests and iOS SDK builds require Actions.
 
 ## Latest verification
 
@@ -31,8 +32,8 @@ Updated: 2026-10-16
 
 ## Next action
 
-1. Inspect adapter run `38861903111` through completion and fix real errors. Meanwhile finish local review of the Metal uploader changes.
-2. Commit/push uploader changes only after confirming `origin/main` is still at `14975e2d4f6f7744560117dbdb7e5ea844cb1a18`; this will start a workflow for the uploader code.
-3. Verify actual MTLBuffer content/descriptor XCTest, adapter/core regression tests, device-SDK compile, app Simulator/device builds, IPA, visible-triangle UI test, and `.xcresult` uploads.
-4. If green, continue to encoder/pipeline and HPL2 draw submission; retain the documented `iVertexBuffer` byte-length limitation. Neither adapter nor upload is yet an HPL2 renderer.
-4. Keep device SDK builds, Simulator rendering, physical iPhone, and genuine HPL2 scene evidence distinct in all reporting.
+1. Inspect run `38862662245` for the Metal uploader source through completion; diagnose any first failure without weakening tests.
+2. Run final local YAML/Bash/host ASan checks for the matrix adapter; verify it is excluded from the SDL app and wired only into the core test scheme.
+3. Commit/push the matrix adapter only after confirming `origin/main` remains `e739f6cf669bc0cd172aa6ccb2baed1e36a03274`; inspect its Actions run through completion.
+4. If green, continue to a simple-pass Metal encoder/pipeline and HPL2 draw submission; preserve the `iVertexBuffer` byte-length limitation. Buffers/matrices alone are not an HPL2 renderer.
+5. Keep device-SDK builds, Simulator rendering, physical-iPhone evidence, and genuine Amnesia-scene evidence separate.
