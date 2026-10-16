@@ -30,6 +30,8 @@ targets:
           - HPL2MetalMeshDraw.mm
           - HPL2MetalRenderStateAdapter.h
           - HPL2MetalRenderStateAdapter.mm
+          - HPL2MetalMSHReader.h
+          - HPL2MetalMSHReader.cpp
     info:
       path: Info.plist
     dependencies:
@@ -183,6 +185,19 @@ targets:
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
         CLANG_ENABLE_OBJC_ARC: "YES"
 
+  HPL2MetalMSHReader:
+    type: library.static
+    platform: iOS
+    sources:
+      - path: Sources/HPL2MetalMSHReader.cpp
+    dependencies:
+      - target: HPL2MetalMeshAdapter
+    settings:
+      base:
+        PRODUCT_NAME: HPL2MetalMSHReader
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include $(SRCROOT)/Sources"
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+
   HPL2CRCTestHost:
     type: application
     platform: iOS
@@ -205,6 +220,7 @@ targets:
       - path: Tests/HPL2MetalMeshAdapterTests.mm
       - path: Tests/HPL2MetalMatrixAdapterTests.mm
       - path: Tests/HPL2MetalRenderStateTests.mm
+      - path: Tests/HPL2MetalMSHReaderTests.mm
       - path: Sources/EngineHostCore.c
       - path: Sources/EngineResourceAccess.c
       - path: Tests/Fixtures/bundle-fixture.txt
@@ -219,6 +235,7 @@ targets:
       - target: HPL2MetalMatrixAdapter
       - target: HPL2MetalMeshDraw
       - target: HPL2MetalRenderStateAdapter
+      - target: HPL2MetalMSHReader
       - target: HPL2CRCTestHost
       - sdk: Metal.framework
       - sdk: Foundation.framework
@@ -256,6 +273,7 @@ schemes:
         HPL2MetalMatrixAdapter: all
         HPL2MetalMeshDraw: all
         HPL2MetalRenderStateAdapter: all
+        HPL2MetalMSHReader: all
         HPL2CRCTestHost: all
         HPL2CRCTests: [test]
     test:
