@@ -247,8 +247,9 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     }
 }
 
-- (void)testHPL2VertexBufferFixtureUploadsAndDrawsIndexedQuad
+- (void)testSyntheticHPL2VertexBufferFixtureUploadsAndDrawsIndexedQuad
 {
+    // Mirrors HPL2 CreatePlane's stream schema; this is not a shipped game asset.
     TestHPL2VertexBuffer buffer;
     buffer.vertexCount = 4;
     buffer.positionComponents = 4;
@@ -287,13 +288,38 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     }
 
     NSError *drawError = nil;
-    HPL2MetalMeshDraw *draw =
+    HPL2MetalRenderState prepassState;
+    HPL2MetalRenderState diffuseState;
+    XCTAssertTrue(HPL2MetalBuildRenderState(
+        hpl::eDepthTestFunc_LessOrEqual, YES, YES,
+        hpl::eCullMode_CounterClockwise, NO,
+        hpl::eMaterialChannelMode_None, hpl::eMaterialBlendMode_None,
+        hpl::eMaterialAlphaMode_Trans, hpl::eAlphaTestFunc_GreaterOrEqual, 0.6f,
+        &prepassState, &drawError));
+    XCTAssertTrue(HPL2MetalBuildRenderState(
+        hpl::eDepthTestFunc_Equal, YES, NO,
+        hpl::eCullMode_CounterClockwise, NO,
+        hpl::eMaterialChannelMode_RGBA, hpl::eMaterialBlendMode_None,
+        hpl::eMaterialAlphaMode_Solid, hpl::eAlphaTestFunc_GreaterOrEqual, 0.6f,
+        &diffuseState, &drawError));
+
+    HPL2MetalMeshDraw *zPrepass =
         [HPL2MetalMeshDraw drawPathWithDevice:device
                                    meshUpload:upload
                                   colorFormat:MTLPixelFormatRGBA8Unorm
+                                  depthFormat:MTLPixelFormatDepth32Float
+                                        state:&prepassState
                                         error:&drawError];
-    XCTAssertNotNil(draw, @"Could not create unlit Metal pass: %@", drawError);
-    if (draw == nil) {
+    XCTAssertNotNil(zPrepass, @"Could not create Metal Z pass: %@", drawError);
+    HPL2MetalMeshDraw *diffusePass =
+        [HPL2MetalMeshDraw drawPathWithDevice:device
+                                   meshUpload:upload
+                                  colorFormat:MTLPixelFormatRGBA8Unorm
+                                  depthFormat:MTLPixelFormatDepth32Float
+                                        state:&diffuseState
+                                        error:&drawError];
+    XCTAssertNotNil(diffusePass, @"Could not create Metal diffuse pass: %@", drawError);
+    if (zPrepass == nil || diffusePass == nil) {
         return;
     }
 
@@ -309,6 +335,19 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     id<MTLTexture> target = [device newTextureWithDescriptor:targetDescriptor];
     XCTAssertNotNil(target);
     if (target == nil) {
+        return;
+    }
+
+    MTLTextureDescriptor *depthDescriptor =
+        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                                           width:width
+                                                          height:height
+                                                       mipmapped:NO];
+    depthDescriptor.usage = MTLTextureUsageRenderTarget;
+    depthDescriptor.storageMode = MTLStorageModePrivate;
+    id<MTLTexture> depth = [device newTextureWithDescriptor:depthDescriptor];
+    XCTAssertNotNil(depth);
+    if (depth == nil) {
         return;
     }
 
@@ -329,9 +368,13 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
                mipmapLevel:0
                  withBytes:whitePixel
                bytesPerRow:sizeof(whitePixel)];
-    MTLSamplerDescriptor *samplerDescriptor = [MTLSamplerDescriptor new];
-    samplerDescriptor.minFilter = MTLSamplerMinMagFilterNearest;
-    samplerDescriptor.magFilter = MTLSamplerMinMagFilterNearest;
+    MTLSamplerDescriptor *samplerDescriptor = HPL2MetalCreateSamplerDescriptor(
+        hpl::eTextureFilter_Nearest, NO,
+        hpl::eTextureWrap_Repeat, hpl::eTextureWrap_Repeat, &drawError);
+    XCTAssertNotNil(samplerDescriptor);
+    if (samplerDescriptor == nil) {
+        return;
+    }
     id<MTLSamplerState> sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
     XCTAssertNotNil(sampler);
     if (sampler == nil) {
@@ -350,27 +393,54 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     XCTAssertTrue(HPL2MetalConvertOpenGLProjection(&identity, &projection, &matrixError));
     XCTAssertTrue(HPL2MetalConvertMatrix(&identity, &modelView, &matrixError));
 
-    MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
-    pass.colorAttachments[0].texture = target;
-    pass.colorAttachments[0].loadAction = MTLLoadActionClear;
-    pass.colorAttachments[0].storeAction = MTLStoreActionStore;
-    pass.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
     id<MTLCommandQueue> queue = [device newCommandQueue];
     id<MTLCommandBuffer> command = [queue commandBuffer];
-    id<MTLRenderCommandEncoder> encoder = [command renderCommandEncoderWithDescriptor:pass];
+    MTLRenderPassDescriptor *zPass = [MTLRenderPassDescriptor renderPassDescriptor];
+    zPass.colorAttachments[0].texture = target;
+    zPass.colorAttachments[0].loadAction = MTLLoadActionClear;
+    zPass.colorAttachments[0].storeAction = MTLStoreActionStore;
+    zPass.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
+    zPass.depthAttachment.texture = depth;
+    zPass.depthAttachment.loadAction = MTLLoadActionClear;
+    zPass.depthAttachment.storeAction = MTLStoreActionStore;
+    zPass.depthAttachment.clearDepth = 1.0;
+    id<MTLRenderCommandEncoder> encoder = [command renderCommandEncoderWithDescriptor:zPass];
     XCTAssertNotNil(encoder);
     if (encoder == nil) {
         return;
     }
-    XCTAssertTrue([draw encodeMesh:upload
-                            encoder:encoder
-                         projection:&projection
-                          modelView:&modelView
-                      diffuseTexture:diffuse
-                              sampler:sampler
-                           useDiffuse:YES
-                                error:&drawError],
-                  @"Indexed Metal draw failed: %@", drawError);
+    XCTAssertTrue([zPrepass encodeMesh:upload
+                                encoder:encoder
+                             projection:&projection
+                              modelView:&modelView
+                          textureUnitZero:diffuse
+                                  sampler:sampler
+                               useDiffuse:NO
+                                    error:&drawError],
+                  @"HPL2-style Z prepass failed: %@", drawError);
+    [encoder endEncoding];
+
+    MTLRenderPassDescriptor *colorPass = [MTLRenderPassDescriptor renderPassDescriptor];
+    colorPass.colorAttachments[0].texture = target;
+    colorPass.colorAttachments[0].loadAction = MTLLoadActionLoad;
+    colorPass.colorAttachments[0].storeAction = MTLStoreActionStore;
+    colorPass.depthAttachment.texture = depth;
+    colorPass.depthAttachment.loadAction = MTLLoadActionLoad;
+    colorPass.depthAttachment.storeAction = MTLStoreActionStore;
+    encoder = [command renderCommandEncoderWithDescriptor:colorPass];
+    XCTAssertNotNil(encoder);
+    if (encoder == nil) {
+        return;
+    }
+    XCTAssertTrue([diffusePass encodeMesh:upload
+                                   encoder:encoder
+                                projection:&projection
+                                 modelView:&modelView
+                             textureUnitZero:diffuse
+                                     sampler:sampler
+                                  useDiffuse:YES
+                                       error:&drawError],
+                  @"HPL2-style equal-depth diffuse pass failed: %@", drawError);
     [encoder endEncoding];
     [command commit];
     [command waitUntilCompleted];
@@ -389,6 +459,72 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     XCTAssertEqual(pixels[center + 3], 255);
     XCTAssertEqual(pixels[3], 255);
     XCTAssertEqual(pixels[0], 0);
+
+    // A transparent alpha map should discard the Z pass; the equal-depth
+    // color pass must then leave the cleared target untouched.
+    const uint8_t transparentPixel[4] = {255, 255, 255, 0};
+    [diffuse replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+               mipmapLevel:0
+                 withBytes:transparentPixel
+               bytesPerRow:sizeof(transparentPixel)];
+    id<MTLCommandBuffer> cutoutCommand = [queue commandBuffer];
+    zPass = [MTLRenderPassDescriptor renderPassDescriptor];
+    zPass.colorAttachments[0].texture = target;
+    zPass.colorAttachments[0].loadAction = MTLLoadActionClear;
+    zPass.colorAttachments[0].storeAction = MTLStoreActionStore;
+    zPass.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
+    zPass.depthAttachment.texture = depth;
+    zPass.depthAttachment.loadAction = MTLLoadActionClear;
+    zPass.depthAttachment.storeAction = MTLStoreActionStore;
+    zPass.depthAttachment.clearDepth = 1.0;
+    encoder = [cutoutCommand renderCommandEncoderWithDescriptor:zPass];
+    XCTAssertNotNil(encoder);
+    if (encoder == nil) {
+        return;
+    }
+    XCTAssertTrue([zPrepass encodeMesh:upload
+                                encoder:encoder
+                             projection:&projection
+                              modelView:&modelView
+                         textureUnitZero:diffuse
+                                  sampler:sampler
+                               useDiffuse:NO
+                                    error:&drawError]);
+    [encoder endEncoding];
+
+    colorPass = [MTLRenderPassDescriptor renderPassDescriptor];
+    colorPass.colorAttachments[0].texture = target;
+    colorPass.colorAttachments[0].loadAction = MTLLoadActionLoad;
+    colorPass.colorAttachments[0].storeAction = MTLStoreActionStore;
+    colorPass.depthAttachment.texture = depth;
+    colorPass.depthAttachment.loadAction = MTLLoadActionLoad;
+    colorPass.depthAttachment.storeAction = MTLStoreActionStore;
+    encoder = [cutoutCommand renderCommandEncoderWithDescriptor:colorPass];
+    XCTAssertNotNil(encoder);
+    if (encoder == nil) {
+        return;
+    }
+    XCTAssertTrue([diffusePass encodeMesh:upload
+                                   encoder:encoder
+                                projection:&projection
+                                 modelView:&modelView
+                            textureUnitZero:diffuse
+                                     sampler:sampler
+                                  useDiffuse:YES
+                                       error:&drawError]);
+    [encoder endEncoding];
+    [cutoutCommand commit];
+    [cutoutCommand waitUntilCompleted];
+    XCTAssertEqual(cutoutCommand.status, MTLCommandBufferStatusCompleted,
+                   @"Alpha-cutout command failed: %@", cutoutCommand.error);
+    [target getBytes:pixels.data()
+         bytesPerRow:width * 4
+          fromRegion:MTLRegionMake2D(0, 0, width, height)
+         mipmapLevel:0];
+    XCTAssertEqual(pixels[center], 0);
+    XCTAssertEqual(pixels[center + 1], 0);
+    XCTAssertEqual(pixels[center + 2], 0);
+    XCTAssertEqual(pixels[center + 3], 255);
 }
 
 - (void)testByteColorUsesTheNormalizedMetalAttributeFormat

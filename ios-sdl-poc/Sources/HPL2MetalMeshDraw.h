@@ -6,6 +6,7 @@
 
 #import "HPL2MetalMeshUploader.h"
 #import "HPL2MetalMatrixAdapter.h"
+#import "HPL2MetalRenderStateAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -25,6 +26,8 @@ typedef NS_ENUM(NSInteger, HPL2MetalMeshDrawErrorCode) {
 + (nullable instancetype)drawPathWithDevice:(id<MTLDevice>)device
                                  meshUpload:(HPL2MetalMeshUpload *)meshUpload
                                 colorFormat:(MTLPixelFormat)colorFormat
+                                depthFormat:(MTLPixelFormat)depthFormat
+                                      state:(const HPL2MetalRenderState *)state
                                       error:(NSError * _Nullable * _Nullable)error;
 
 // Encodes one triangle-list draw. The caller owns and ends the render pass.
@@ -32,7 +35,7 @@ typedef NS_ENUM(NSInteger, HPL2MetalMeshDrawErrorCode) {
            encoder:(id<MTLRenderCommandEncoder>)encoder
         projection:(const HPL2MetalMatrix4x4 *)projection
          modelView:(const HPL2MetalMatrix4x4 *)modelView
-     diffuseTexture:(id<MTLTexture>)diffuseTexture
+      textureUnitZero:(id<MTLTexture>)textureUnitZero
              sampler:(id<MTLSamplerState>)sampler
           useDiffuse:(BOOL)useDiffuse
                error:(NSError * _Nullable * _Nullable)error;

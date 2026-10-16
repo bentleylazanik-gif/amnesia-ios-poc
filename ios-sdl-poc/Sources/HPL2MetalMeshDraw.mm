@@ -2,6 +2,7 @@
 
 #import <simd/simd.h>
 
+#include <cmath>
 #include <cstring>
 #include <stdint.h>
 
@@ -12,6 +13,8 @@ NSErrorDomain const HPL2MetalMeshDrawErrorDomain =
 @property (nonatomic, strong) id<MTLDevice> device;
 @property (nonatomic, strong) id<MTLRenderPipelineState> pipeline;
 @property (nonatomic, strong) MTLVertexDescriptor *vertexDescriptor;
+@property (nonatomic, strong, nullable) id<MTLDepthStencilState> depthStencilState;
+@property (nonatomic) HPL2MetalRenderState renderState;
 @property (nonatomic) NSUInteger vertexBufferCount;
 @end
 
@@ -75,7 +78,6 @@ BOOL HasRequiredAttribute(HPL2MetalMeshUpload *upload,
     MTLVertexAttributeDescriptor *attribute =
         upload.vertexDescriptor.attributes[wantedIndex];
     return attribute.format != MTLVertexFormatInvalid;
-    return NO;
 }
 
 static const char kHPL2UnlitShaderSource[] =
@@ -87,6 +89,7 @@ static const char kHPL2UnlitShaderSource[] =
     "  float3 uv [[attribute(3)]];\n"
     "};\n"
     "struct VertexUniforms { float4x4 projection; float4x4 modelView; };\n"
+    "struct FragmentUniforms { uint useDiffuse; uint alphaTestEnabled; uint alphaFunction; float alphaReference; };\n"
     "struct VertexOut { float4 position [[position]]; float4 color; float2 uv; };\n"
     "vertex VertexOut hpl2UnlitVertex(VertexIn in [[stage_in]],\n"
     "  constant VertexUniforms &u [[buffer(5)]]) {\n"
@@ -96,17 +99,35 @@ static const char kHPL2UnlitShaderSource[] =
     "  out.uv = in.uv.xy;\n"
     "  return out;\n"
     "}\n"
+    "bool alphaTestPass(uint function, float alpha, float reference) {\n"
+    "  switch (function) {\n"
+    "    case 0: return false; case 1: return alpha < reference;\n"
+    "    case 2: return alpha <= reference; case 3: return alpha > reference;\n"
+    "    case 4: return alpha >= reference; case 5: return alpha == reference;\n"
+    "    case 6: return alpha != reference; default: return true;\n"
+    "  }\n"
+    "}\n"
     "fragment float4 hpl2UnlitFragment(VertexOut in [[stage_in]],\n"
     "  texture2d<float> diffuse [[texture(0)]], sampler diffuseSampler [[sampler(0)]],\n"
-    "  constant uint &useDiffuse [[buffer(0)]]) {\n"
-    "  float4 texel = useDiffuse != 0 ? diffuse.sample(diffuseSampler, in.uv) : float4(1.0);\n"
-    "  return in.color * texel;\n"
+    "  constant FragmentUniforms &u [[buffer(0)]]) {\n"
+    "  float4 texel = diffuse.sample(diffuseSampler, in.uv);\n"
+    "  float alpha = in.color.a * texel.a;\n"
+    "  if (u.alphaTestEnabled != 0 && !alphaTestPass(u.alphaFunction, alpha, u.alphaReference)) discard_fragment();\n"
+    "  return in.color * (u.useDiffuse != 0 ? texel : float4(1.0));\n"
     "}\n";
 
 struct HPL2MetalDrawUniforms
 {
     simd_float4x4 projection;
     simd_float4x4 modelView;
+};
+
+struct HPL2MetalFragmentUniforms
+{
+    uint32_t useDiffuse;
+    uint32_t alphaTestEnabled;
+    uint32_t alphaFunction;
+    float alphaReference;
 };
 
 } // namespace
@@ -116,17 +137,23 @@ struct HPL2MetalDrawUniforms
 + (nullable instancetype)drawPathWithDevice:(id<MTLDevice>)device
                                  meshUpload:(HPL2MetalMeshUpload *)meshUpload
                                 colorFormat:(MTLPixelFormat)colorFormat
+                                depthFormat:(MTLPixelFormat)depthFormat
+                                      state:(const HPL2MetalRenderState *)state
                                       error:(NSError * _Nullable * _Nullable)error
 {
     if (error != NULL) {
         *error = nil;
     }
-    if (device == nil || meshUpload == nil || colorFormat == MTLPixelFormatInvalid ||
+    if (device == nil || meshUpload == nil || state == NULL ||
+        colorFormat == MTLPixelFormatInvalid ||
         !HasRequiredAttribute(meshUpload, hpl::eVertexBufferElement_Position) ||
         !HasRequiredAttribute(meshUpload, hpl::eVertexBufferElement_Color0) ||
-        !HasRequiredAttribute(meshUpload, hpl::eVertexBufferElement_Texture0)) {
+        !HasRequiredAttribute(meshUpload, hpl::eVertexBufferElement_Texture0) ||
+        ((state->depthTestEnabled || state->depthWriteEnabled) &&
+         depthFormat == MTLPixelFormatInvalid) ||
+        !std::isfinite(state->alphaReference)) {
         SetDrawError(error, HPL2MetalMeshDrawErrorInvalidArgument,
-                     @"The Metal device, color format, or required HPL2 attributes are missing.");
+                     @"The Metal device, render state, attachments, or required HPL2 attributes are invalid.");
         return nil;
     }
 
@@ -156,6 +183,13 @@ struct HPL2MetalDrawUniforms
     descriptor.fragmentFunction = fragmentFunction;
     descriptor.vertexDescriptor = meshUpload.vertexDescriptor;
     descriptor.colorAttachments[0].pixelFormat = colorFormat;
+    descriptor.colorAttachments[0].writeMask = state->colorWriteMask;
+    descriptor.colorAttachments[0].blendingEnabled = state->blendEnabled;
+    descriptor.colorAttachments[0].sourceRGBBlendFactor = state->sourceRGBBlendFactor;
+    descriptor.colorAttachments[0].destinationRGBBlendFactor = state->destinationRGBBlendFactor;
+    descriptor.colorAttachments[0].sourceAlphaBlendFactor = state->sourceAlphaBlendFactor;
+    descriptor.colorAttachments[0].destinationAlphaBlendFactor = state->destinationAlphaBlendFactor;
+    descriptor.depthAttachmentPixelFormat = depthFormat;
     id<MTLRenderPipelineState> pipeline =
         [device newRenderPipelineStateWithDescriptor:descriptor error:&metalError];
     if (pipeline == nil) {
@@ -164,10 +198,27 @@ struct HPL2MetalDrawUniforms
         return nil;
     }
 
+    id<MTLDepthStencilState> depthStencilState = nil;
+    if (depthFormat != MTLPixelFormatInvalid) {
+        MTLDepthStencilDescriptor *depthDescriptor = [MTLDepthStencilDescriptor new];
+        depthDescriptor.depthCompareFunction = state->depthTestEnabled
+                                                   ? state->depthCompare
+                                                   : MTLCompareFunctionAlways;
+        depthDescriptor.depthWriteEnabled = state->depthWriteEnabled;
+        depthStencilState = [device newDepthStencilStateWithDescriptor:depthDescriptor];
+        if (depthStencilState == nil) {
+            SetDrawError(error, HPL2MetalMeshDrawErrorPipelineCreation,
+                         @"Could not create the Metal depth/stencil state.");
+            return nil;
+        }
+    }
+
     HPL2MetalMeshDraw *draw = [[self alloc] init];
     draw.device = device;
     draw.pipeline = pipeline;
     draw.vertexDescriptor = meshUpload.vertexDescriptor;
+    draw.depthStencilState = depthStencilState;
+    draw.renderState = *state;
     draw.vertexBufferCount = meshUpload.vertexBuffers.count;
     return draw;
 }
@@ -176,7 +227,7 @@ struct HPL2MetalDrawUniforms
            encoder:(id<MTLRenderCommandEncoder>)encoder
         projection:(const HPL2MetalMatrix4x4 *)projection
          modelView:(const HPL2MetalMatrix4x4 *)modelView
-     diffuseTexture:(id<MTLTexture>)diffuseTexture
+      textureUnitZero:(id<MTLTexture>)textureUnitZero
              sampler:(id<MTLSamplerState>)sampler
           useDiffuse:(BOOL)useDiffuse
                error:(NSError * _Nullable * _Nullable)error
@@ -185,7 +236,7 @@ struct HPL2MetalDrawUniforms
         *error = nil;
     }
     if (meshUpload == nil || encoder == nil || projection == NULL || modelView == NULL ||
-        diffuseTexture == nil || sampler == nil ||
+        textureUnitZero == nil || sampler == nil ||
         meshUpload.vertexBuffers.count == 0 || meshUpload.indexBuffer == nil ||
         meshUpload.drawIndexCount == 0 || meshUpload.drawIndexCount > meshUpload.indexCount) {
         SetDrawError(error, HPL2MetalMeshDrawErrorInvalidArgument,
@@ -199,7 +250,7 @@ struct HPL2MetalDrawUniforms
         return NO;
     }
     if (meshUpload.indexBuffer.device != self.device ||
-        diffuseTexture.device != self.device) {
+        textureUnitZero.device != self.device) {
         SetDrawError(error, HPL2MetalMeshDrawErrorInvalidArgument,
                      @"The mesh buffers, texture, and draw pipeline must use the same Metal device.");
         return NO;
@@ -215,9 +266,19 @@ struct HPL2MetalDrawUniforms
     HPL2MetalDrawUniforms uniforms;
     memcpy(&uniforms.projection, projection->values, sizeof(uniforms.projection));
     memcpy(&uniforms.modelView, modelView->values, sizeof(uniforms.modelView));
-    const uint32_t useDiffuseValue = useDiffuse ? 1u : 0u;
+    HPL2MetalFragmentUniforms fragmentUniforms = {
+        useDiffuse ? 1u : 0u,
+        self.renderState.alphaTestEnabled ? 1u : 0u,
+        static_cast<uint32_t>(self.renderState.alphaFunction),
+        self.renderState.alphaReference
+    };
 
     [encoder setRenderPipelineState:self.pipeline];
+    [encoder setCullMode:self.renderState.cullMode];
+    [encoder setFrontFacingWinding:self.renderState.frontFacingWinding];
+    if (self.depthStencilState != nil) {
+        [encoder setDepthStencilState:self.depthStencilState];
+    }
     for (NSUInteger index = 0; index < meshUpload.vertexBuffers.count; ++index) {
         [encoder setVertexBuffer:meshUpload.vertexBuffers[index]
                           offset:0
@@ -226,10 +287,10 @@ struct HPL2MetalDrawUniforms
     [encoder setVertexBytes:&uniforms
                      length:sizeof(uniforms)
                     atIndex:5];
-    [encoder setFragmentTexture:diffuseTexture atIndex:0];
+    [encoder setFragmentTexture:textureUnitZero atIndex:0];
     [encoder setFragmentSamplerState:sampler atIndex:0];
-    [encoder setFragmentBytes:&useDiffuseValue
-                       length:sizeof(useDiffuseValue)
+    [encoder setFragmentBytes:&fragmentUniforms
+                       length:sizeof(fragmentUniforms)
                       atIndex:0];
     [encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                         indexCount:meshUpload.drawIndexCount
