@@ -7,6 +7,7 @@
 #include "HPL2MetalMatrixAdapter.h"
 #include "EngineResourceAccess.h"
 
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -63,7 +64,11 @@ void AppendStreamHeader(std::vector<uint8_t> *bytes,
 
 std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
                                        bool byteColor = false,
-                                       int32_t declaredVertexCount = 4)
+                                       int32_t declaredVertexCount = 4,
+                                       bool includeCollider = false,
+                                       int32_t declaredColliderCount = -1,
+                                       int32_t declaredIndexCount = 6,
+                                       bool unalignedByteColor = false)
 {
     std::vector<uint8_t> bytes;
     AppendU32(&bytes, 0x76034569u); // MSH_FORMAT_MAGIC_NUMBER
@@ -84,9 +89,19 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
     AppendFloat(&bytes, 1.0f);
     AppendFloat(&bytes, 1.0f);
     AppendU8(&bytes, 0); // not a collision shape
-    AppendI32(&bytes, 0); // collider count
+    AppendI32(&bytes, declaredColliderCount != -1
+                          ? declaredColliderCount : (includeCollider ? 1 : 0)); // collider count
+    if (includeCollider) {
+        AppendU16(&bytes, 0); // HPL2 collider shape enum
+        for (int i = 0; i < 16; ++i) AppendFloat(&bytes, i % 5 == 0 ? 1.0f : 0.0f);
+        AppendFloat(&bytes, 1.0f);
+        AppendFloat(&bytes, 2.0f);
+        AppendFloat(&bytes, 3.0f);
+        AppendU8(&bytes, 0); // not a character collider
+    }
     AppendI32(&bytes, 0); // vertex bone pair count
-    AppendI32(&bytes, declaredVertexCount); // vertex count
+    const int vertexCount = unalignedByteColor ? 3 : 4;
+    AppendI32(&bytes, unalignedByteColor ? 3 : declaredVertexCount); // vertex count
     AppendI32(&bytes, 4); // stream count
 
     AppendStreamHeader(&bytes, hpl::eVertexBufferElement_Position,
@@ -97,24 +112,26 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
          1.0f,  1.0f, 0.0f, 1.0f,
         -1.0f,  1.0f, 0.0f, 1.0f
     };
-    for (float value : positionData) AppendFloat(&bytes, value);
+    for (int i = 0; i < vertexCount * 4; ++i) AppendFloat(&bytes, positionData[i]);
 
     AppendStreamHeader(&bytes, hpl::eVertexBufferElement_Normal,
                        hpl::eVertexBufferElementFormat_Float, 3);
-    for (int vertex = 0; vertex < 4; ++vertex) {
+    for (int vertex = 0; vertex < vertexCount; ++vertex) {
         AppendFloat(&bytes, 0.0f);
         AppendFloat(&bytes, 1.0f);
         AppendFloat(&bytes, 0.0f);
     }
 
     AppendStreamHeader(&bytes, hpl::eVertexBufferElement_Color0,
-                       byteColor ? hpl::eVertexBufferElementFormat_Byte
-                                 : hpl::eVertexBufferElementFormat_Float,
-                       4);
-    for (int vertex = 0; vertex < 4; ++vertex) {
-        if (byteColor) {
+                       (byteColor || unalignedByteColor)
+                           ? hpl::eVertexBufferElementFormat_Byte
+                           : hpl::eVertexBufferElementFormat_Float,
+                       unalignedByteColor ? 3 : 4);
+    for (int vertex = 0; vertex < vertexCount; ++vertex) {
+        if (byteColor || unalignedByteColor) {
             AppendU8(&bytes, 255); AppendU8(&bytes, 255);
-            AppendU8(&bytes, 255); AppendU8(&bytes, 255);
+            AppendU8(&bytes, 255);
+            if (!unalignedByteColor) AppendU8(&bytes, 255);
         } else {
             AppendFloat(&bytes, 1.0f); AppendFloat(&bytes, 1.0f);
             AppendFloat(&bytes, 1.0f); AppendFloat(&bytes, 1.0f);
@@ -123,15 +140,19 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
 
     AppendStreamHeader(&bytes, hpl::eVertexBufferElement_Texture0,
                        hpl::eVertexBufferElementFormat_Float, 3);
-    for (int vertex = 0; vertex < 4; ++vertex) {
+    for (int vertex = 0; vertex < vertexCount; ++vertex) {
         AppendFloat(&bytes, vertex == 1 || vertex == 2 ? 1.0f : 0.0f);
         AppendFloat(&bytes, vertex >= 2 ? 1.0f : 0.0f);
         AppendFloat(&bytes, 0.0f);
     }
 
-    AppendI32(&bytes, 6);
-    AppendI32(&bytes, 0); AppendI32(&bytes, 1); AppendI32(&bytes, 2);
-    AppendI32(&bytes, 2); AppendI32(&bytes, outOfRangeIndex ? 4 : 3); AppendI32(&bytes, 0);
+    static const int32_t indexData[6] = {0, 1, 2, 2, 3, 0};
+    const int indexCount = unalignedByteColor ? 3 : 6;
+    AppendI32(&bytes, unalignedByteColor ? 3 : declaredIndexCount);
+    for (int i = 0; i < indexCount; ++i) {
+        const int32_t index = outOfRangeIndex && i == 4 ? 4 : indexData[i];
+        AppendI32(&bytes, index);
+    }
     AppendI32(&bytes, 0); // trailing animation count
     return bytes;
 }
@@ -170,6 +191,16 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
     XCTAssertEqual(view.attributes[0].offset, 0u);
     XCTAssertEqual(view.attributes[0].stride, 4u * sizeof(float));
     XCTAssertEqual(view.attributes[0].byteLength, 16u * sizeof(float));
+
+    // Collider records are ignored for rendering, but their exact source-defined
+    // serialized size must be skipped before vertex streams are decoded.
+    std::vector<uint8_t> withCollider = MakeMinimalHPL2MSH(false, false, 4, true);
+    HPL2MetalMSHStaticSubmesh colliderSubmesh;
+    XCTAssertTrue(HPL2MetalReadStaticMSHSubmesh(withCollider.data(), withCollider.size(),
+                                                &colliderSubmesh, &error));
+    XCTAssertEqual(error, HPL2MetalMSHError_None);
+    XCTAssertEqual(colliderSubmesh.vertexCount, 4u);
+    XCTAssertEqual(colliderSubmesh.indices.size(), 6u);
 }
 
 - (void)testReadsByteColorAsHPL2UnsignedByteStream
@@ -189,6 +220,24 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
         static_cast<const unsigned char *>(view.attributes[2].bytes);
     XCTAssertEqual(color[0], 255u);
     XCTAssertEqual(color[3], 255u);
+
+    // HPL2 serializes the next Float stream immediately after a 3-byte-color
+    // stream; only the reader's owned backing storage gets alignment padding.
+    std::vector<uint8_t> unalignedFile =
+        MakeMinimalHPL2MSH(false, false, 3, false, -1, 3, true);
+    HPL2MetalMSHStaticSubmesh unalignedSubmesh;
+    XCTAssertTrue(HPL2MetalReadStaticMSHSubmesh(unalignedFile.data(), unalignedFile.size(),
+                                                &unalignedSubmesh, &error));
+    XCTAssertEqual(error, HPL2MetalMSHError_None);
+    XCTAssertTrue(unalignedSubmesh.BuildMetalMeshView(&view, &meshError));
+    XCTAssertEqual(meshError, HPL2MetalMeshError_None);
+    XCTAssertEqual(view.attributes[2].byteLength, 9u);
+    XCTAssertEqual(view.attributes[3].byteLength, 9u * sizeof(float));
+    XCTAssertEqual(reinterpret_cast<uintptr_t>(view.attributes[3].bytes) % alignof(float), 0u);
+    const float *uv = static_cast<const float *>(view.attributes[3].bytes);
+    XCTAssertEqualWithAccuracy(uv[0], 0.0f, 0.0f);
+    XCTAssertEqualWithAccuracy(uv[1], 0.0f, 0.0f);
+    XCTAssertEqualWithAccuracy(uv[2], 0.0f, 0.0f);
 }
 
 - (void)testLoadsOwnerSuppliedMSHThroughAppResourceReaderPath
@@ -406,6 +455,34 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
     XCTAssertFalse(HPL2MetalReadStaticMSHSubmesh(trailing.data(), trailing.size(),
                                                   &submesh, &error));
     XCTAssertEqual(error, HPL2MetalMSHError_TrailingData);
+
+    std::vector<uint8_t> negativeColliders =
+        MakeMinimalHPL2MSH(false, false, 4, false, -2);
+    XCTAssertFalse(HPL2MetalReadStaticMSHSubmesh(negativeColliders.data(),
+                                                  negativeColliders.size(),
+                                                  &submesh, &error));
+    XCTAssertEqual(error, HPL2MetalMSHError_InvalidCount);
+
+    std::vector<uint8_t> negativeIndices =
+        MakeMinimalHPL2MSH(false, false, 4, false, -1, -2);
+    XCTAssertFalse(HPL2MetalReadStaticMSHSubmesh(negativeIndices.data(),
+                                                  negativeIndices.size(),
+                                                  &submesh, &error));
+    XCTAssertEqual(error, HPL2MetalMSHError_InvalidCount);
+
+    std::vector<uint8_t> truncatedColliders =
+        MakeMinimalHPL2MSH(false, false, 4, false, 1000);
+    XCTAssertFalse(HPL2MetalReadStaticMSHSubmesh(truncatedColliders.data(),
+                                                  truncatedColliders.size(),
+                                                  &submesh, &error));
+    XCTAssertEqual(error, HPL2MetalMSHError_Truncated);
+
+    std::vector<uint8_t> truncatedIndices =
+        MakeMinimalHPL2MSH(false, false, 4, false, -1, 1000);
+    XCTAssertFalse(HPL2MetalReadStaticMSHSubmesh(truncatedIndices.data(),
+                                                  truncatedIndices.size(),
+                                                  &submesh, &error));
+    XCTAssertEqual(error, HPL2MetalMSHError_Truncated);
 
     // This malformed stream count would request gigabytes if the parser
     // allocated before checking the available serialized vertex bytes.

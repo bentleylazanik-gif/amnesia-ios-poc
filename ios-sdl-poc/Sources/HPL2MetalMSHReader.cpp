@@ -212,8 +212,12 @@ bool ReadStaticMesh(ByteReader *reader, HPL2MetalMSHStaticSubmesh *mesh,
         SetError(error, HPL2MetalMSHError_Truncated);
         return false;
     }
-    if (colliderCount < 0 || static_cast<size_t>(colliderCount) > reader->Remaining() / 79) {
+    if (colliderCount < 0) {
         SetError(error, HPL2MetalMSHError_InvalidCount);
+        return false;
+    }
+    if (static_cast<size_t>(colliderCount) > reader->Remaining() / 79) {
+        SetError(error, HPL2MetalMSHError_Truncated);
         return false;
     }
     for (int32_t i = 0; i < colliderCount; ++i) {
@@ -331,8 +335,12 @@ bool ReadStaticMesh(ByteReader *reader, HPL2MetalMSHStaticSubmesh *mesh,
         SetError(error, HPL2MetalMSHError_Truncated);
         return false;
     }
-    if (indexCount < 0 || static_cast<size_t>(indexCount) > reader->Remaining() / sizeof(uint32_t)) {
+    if (indexCount < 0) {
         SetError(error, HPL2MetalMSHError_InvalidCount);
+        return false;
+    }
+    if (static_cast<size_t>(indexCount) > reader->Remaining() / sizeof(uint32_t)) {
+        SetError(error, HPL2MetalMSHError_Truncated);
         return false;
     }
     mesh->indices.resize(static_cast<size_t>(indexCount));
