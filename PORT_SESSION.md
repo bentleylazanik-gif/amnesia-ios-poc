@@ -5,17 +5,17 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Latest pushed checkpoint before this documentation update: local `HEAD` and `origin/main` both `60702b029728accdb065c0636e762291fa5423ec`. Recheck hashes before pushing further work.
+- Latest pushed checkpoint: local `HEAD` and `origin/main` both `164959aadb3ee54e12e833ca893f79c95ee72985`. The last pushed CI-triggering source checkpoint is `60702b029728accdb065c0636e762291fa5423ec`; the subsequent `164959a` changes only port documentation, outside the workflow path filters.
 - No command is interrupted or still running. Current uncommitted files: `PORT_PROGRESS.md`, `PORT_TASKS.md`, and this checkpoint; these are the verified UI-run/HPL2-source-trace documentation updates.
 
 ## Latest verification
 
-- UI-visible Metal triangle workflow: run `38848851961`, success: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38848851961 (workflow head `7a0c509f6e39f6bec8f9b69cf1e3a8912ed27c6b`; later commits only updated docs / UI-test state handling).
+- UI-visible Metal triangle workflow: run `38849387990`, success: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38849387990 (workflow head `60702b029728accdb065c0636e762291fa5423ec`; subsequent `164959a` is documentation-only and is outside workflow path filters).
   - XcodeGen/project generation passed.
   - 8 core XCTest methods passed, including CRC, quaternion/matrix, frame clock, resource behavior, and offscreen Metal rendering/readback/bounds/repeat checks.
   - `testSDLAppPresentsMetalTriangleToDisplay` passed on an iOS Simulator: launched `org.example.sdltouchpoc`, captured the `SDL Metal triangle screen` attachment, and passed the bright-center-pixel assertion (1 UI test, 0 failures).
   - Device-SDK compilation, unsigned SDL app device and Simulator SDK builds, IPA packaging, and app artifacts passed.
-  - Both `HPL2CRCSmoke.xcresult` and `SDLMetalVisible.xcresult` uploaded. The visible result artifact is available at https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38848851961/artifacts/12024439042.
+  - Both `HPL2CRCSmoke.xcresult` and `SDLMetalVisible.xcresult` uploaded. The latest visible result artifact is available at https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38849387990/artifacts/12024444203.
   - This is Simulator visible-rendering evidence only, not physical-iPhone evidence, and not an HPL2 renderer.
 - Earlier source-exclusion run `38779197725` passed; build logs confirmed the Metal probe object is compiled under its separate probe target and not the `SDLTouchPoC` app target.
 - Earlier detailed probe/core run `38806244632` passed eight Simulator tests, including offscreen Metal triangle pixel readback and invalid/oversized dimensions/repeated-render checks.
