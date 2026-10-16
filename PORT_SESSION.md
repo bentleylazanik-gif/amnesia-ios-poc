@@ -5,8 +5,9 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Recovery verified: local `HEAD`, `origin/main`, and `git ls-remote origin refs/heads/main` all match `b696ddf66dd4a2eaf761185659e5a282612d392b`; worktree was clean at recovery.
-- No command is interrupted or running. Current task: implement a tested view/descriptor adapter for actual HPL2 vertex/index buffers, beginning with the pinned `iVertexBuffer` API and the `CreatePlane` → `RendererSimple` call path. Preserve later source edits; do not reset/clean.
+- Last committed checkpoint before adapter implementation: local `HEAD` and `origin/main` both `ef9b27937a41b8a30802afce6118a733c64fa8e6`; the remote was verified before editing.
+- No command is interrupted or running. Current worktree contains the new uncommitted adapter implementation, XCTest fixture, and XcodeGen wiring under `ios-sdl-poc/`; preserve them. The HPL2 source worktree remains on pinned `acc95cd...` and its pre-existing untracked staged project files are untouched.
+- Current milestone: HPL2 vertex/index descriptor adapter implementation; local GCC strict-warning + ASan/UBSan host smoke passed for both size-bearing views and extraction from an `iVertexBuffer` test double. YAML, Bash, target membership/exclusion, and `git diff --check` passed. Xcode/XcodeGen are unavailable in this Linux environment, so Simulator/device SDK verification is pending Actions.
 
 ## Latest verification
 
@@ -29,7 +30,7 @@ Updated: 2026-10-16
 
 ## Next action
 
-1. Commit this evidence update after reviewing `git diff --check`; push only if `main` still matches `origin/main`.
-2. The `cMeshCreator::CreatePlane` → `cRendererSimple::RenderObjects` path is now mapped: HPL2 builds position/normal/color/UV/index arrays; renderer sets depth/blend/alpha/channel, binds program/texture/matrix/buffer, then calls `iVertexBuffer::Draw`. Implement the next small step as a tested adapter from actual HPL2 vertex arrays to Metal vertex/index upload layout (stride, optional attributes, index bounds), without claiming it is an HPL2 renderer.
-3. Make this adapter compile against the pinned HPL2 headers and add host/CI tests; then exercise it with `CreatePlane`-generated data before proceeding to Metal encoder/pipeline and simple-pass state mapping.
+1. Review and commit the adapter changes; push only after confirming the remote is still at `ef9b27937a41b8a30802afce6118a733c64fa8e6`. The code paths trigger iOS workflow CI.
+2. Inspect that run to completion: adapter static library/device-SDK compilation, expanded Simulator XCTest suite, probe exclusion, app device/Simulator builds, IPA packaging, visible triangle test, and `.xcresult` uploads.
+3. Fix any real failure without weakening assertions. If green, continue with a separate Metal uploader that consumes the validated descriptors. The upstream `iVertexBuffer` byte-length limitation remains documented; this adapter is not yet a renderer.
 4. Keep device SDK builds, Simulator rendering, physical iPhone, and genuine HPL2 scene evidence distinct in all reporting.

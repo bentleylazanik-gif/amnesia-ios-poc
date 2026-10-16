@@ -20,6 +20,8 @@ targets:
         excludes:
           - IOSMetalTriangleProbe.h
           - IOSMetalTriangleProbe.mm
+          - HPL2MetalMeshAdapter.h
+          - HPL2MetalMeshAdapter.cpp
     info:
       path: Info.plist
     dependencies:
@@ -91,6 +93,17 @@ targets:
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
         CLANG_ENABLE_OBJC_ARC: "YES"
 
+  HPL2MetalMeshAdapter:
+    type: library.static
+    platform: iOS
+    sources:
+      - path: Sources/HPL2MetalMeshAdapter.cpp
+    settings:
+      base:
+        PRODUCT_NAME: HPL2MetalMeshAdapter
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include $(SRCROOT)/Sources"
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+
   HPL2CRCTestHost:
     type: application
     platform: iOS
@@ -110,6 +123,7 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: Tests/HPL2CRCTests/HPL2CRCTests.mm
+      - path: Tests/HPL2MetalMeshAdapterTests.mm
       - path: Sources/EngineHostCore.c
       - path: Sources/EngineResourceAccess.c
       - path: Tests/Fixtures/bundle-fixture.txt
@@ -119,6 +133,7 @@ targets:
       - target: HPL2Quaternion
       - target: HPL2Math
       - target: IOSMetalTriangleProbe
+      - target: HPL2MetalMeshAdapter
       - target: HPL2CRCTestHost
       - sdk: Metal.framework
       - sdk: Foundation.framework
@@ -151,6 +166,7 @@ schemes:
         HPL2Quaternion: all
         HPL2Math: all
         IOSMetalTriangleProbe: all
+        HPL2MetalMeshAdapter: all
         HPL2CRCTestHost: all
         HPL2CRCTests: [test]
     test:
