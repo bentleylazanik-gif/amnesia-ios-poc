@@ -29,7 +29,7 @@ Updated: 2026-10-16
 ## Next action
 
 1. Verify the local compile corrections and inspect the complete `HPL2MetalWindowPresenter.mm` diff for lifetime/error handling; retain the successful 30-test evidence from failed run `38901341636` separately from its failed app-build result.
-2. Run project/YAML/plist/source-target checks and host ASan/UBSan reader smoke. No Xcode is installed in this Linux workspace.
-3. Confirm `origin/main` is still `213c7ad`, commit/push the two compile fixes and corrected checkpoints, then inspect the fresh Actions run through device build, Simulator build, IPA, and visible UI test.
-4. Only after app CI passes, consider a visual test that injects the generated MSH; do not describe generated fixture data as an Amnesia asset. Material/shader translation and legitimate user asset testing remain later work.
+2. Parser hardening is in progress: reject truncated stream payload lengths before allocating; XCTest adds a 500-million-vertex malformed declaration. A new end-to-end MSH fixture test exercises parser→Metal upload→indexed draw→center-pixel readback. Host ASan/UBSan parser smoke passes; Metal XCTest is pending.
+3. Let Actions run `38901969951` validate commit `a9255ab` app/device/Simulator/IPA/UI path before pushing the new parser/Metal test. It was queued at checkpoint. Then stage the parser hardening and end-to-end assertion, rerun static checks/host smoke, and trigger CI.
+4. No Xcode is installed locally, so only Actions can validate Obj-C++/Metal/app. Consider a test-only visual injection path only if it can stay outside shipping app code; never label generated fixture as Amnesia content.
 5. Keep device-SDK builds, Simulator render tests, physical-iPhone evidence, and genuine Amnesia-scene evidence separate.

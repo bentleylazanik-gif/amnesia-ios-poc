@@ -1,6 +1,10 @@
 #import <XCTest/XCTest.h>
+#import <Metal/Metal.h>
 
 #include "HPL2MetalMSHReader.h"
+#include "HPL2MetalMeshDraw.h"
+#include "HPL2MetalRenderStateAdapter.h"
+#include "HPL2MetalMatrixAdapter.h"
 #include "EngineResourceAccess.h"
 
 #include <cstring>
@@ -58,7 +62,8 @@ void AppendStreamHeader(std::vector<uint8_t> *bytes,
 }
 
 std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
-                                       bool byteColor = false)
+                                       bool byteColor = false,
+                                       int32_t declaredVertexCount = 4)
 {
     std::vector<uint8_t> bytes;
     AppendU32(&bytes, 0x76034569u); // MSH_FORMAT_MAGIC_NUMBER
@@ -81,7 +86,7 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
     AppendU8(&bytes, 0); // not a collision shape
     AppendI32(&bytes, 0); // collider count
     AppendI32(&bytes, 0); // vertex bone pair count
-    AppendI32(&bytes, 4); // vertex count
+    AppendI32(&bytes, declaredVertexCount); // vertex count
     AppendI32(&bytes, 4); // stream count
 
     AppendStreamHeader(&bytes, hpl::eVertexBufferElement_Position,
@@ -227,6 +232,154 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
     [[NSFileManager defaultManager] removeItemAtPath:root error:nil];
 }
 
+- (void)testGeneratedMSHFixtureUploadsAndDrawsIndexedMeshInMetal
+{
+    const std::vector<uint8_t> file = MakeMinimalHPL2MSH();
+    HPL2MetalMSHStaticSubmesh submesh;
+    HPL2MetalMSHError mshError;
+    XCTAssertTrue(HPL2MetalReadStaticMSHSubmesh(file.data(), file.size(),
+                                                &submesh, &mshError));
+    if (mshError != HPL2MetalMSHError_None) {
+        return;
+    }
+
+    HPL2MetalMeshView meshView;
+    HPL2MetalMeshError meshError;
+    XCTAssertTrue(submesh.BuildMetalMeshView(&meshView, &meshError));
+    if (meshError != HPL2MetalMeshError_None) {
+        return;
+    }
+
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    XCTAssertNotNil(device);
+    if (device == nil) {
+        return;
+    }
+    NSError *metalError = nil;
+    HPL2MetalMeshUpload *upload =
+        [HPL2MetalMeshUpload uploadMeshView:&meshView device:device error:&metalError];
+    XCTAssertNotNil(upload, @"Parsed MSH buffer upload failed: %@", metalError);
+    if (upload == nil) {
+        return;
+    }
+
+    HPL2MetalRenderState state;
+    const BOOL stateOK = HPL2MetalBuildRenderState(
+        hpl::eDepthTestFunc_LessOrEqual, YES, YES,
+        hpl::eCullMode_CounterClockwise, NO,
+        hpl::eMaterialChannelMode_RGBA, hpl::eMaterialBlendMode_None,
+        hpl::eMaterialAlphaMode_Solid, hpl::eAlphaTestFunc_GreaterOrEqual, 0.6f,
+        &state, &metalError);
+    XCTAssertTrue(stateOK);
+    if (!stateOK) {
+        return;
+    }
+    HPL2MetalMeshDraw *draw = [HPL2MetalMeshDraw drawPathWithDevice:device
+                                                        meshUpload:upload
+                                                       colorFormat:MTLPixelFormatRGBA8Unorm
+                                                       depthFormat:MTLPixelFormatDepth32Float
+                                                             state:&state
+                                                             error:&metalError];
+    XCTAssertNotNil(draw, @"Could not create parsed-MSH Metal draw: %@", metalError);
+    if (draw == nil) {
+        return;
+    }
+
+    const NSUInteger width = 64, height = 64;
+    MTLTextureDescriptor *colorDescriptor =
+        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                           width:width height:height mipmapped:NO];
+    colorDescriptor.usage = MTLTextureUsageRenderTarget;
+    colorDescriptor.storageMode = MTLStorageModeShared;
+    id<MTLTexture> color = [device newTextureWithDescriptor:colorDescriptor];
+    MTLTextureDescriptor *depthDescriptor =
+        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float
+                                                           width:width height:height mipmapped:NO];
+    depthDescriptor.usage = MTLTextureUsageRenderTarget;
+    depthDescriptor.storageMode = MTLStorageModePrivate;
+    id<MTLTexture> depth = [device newTextureWithDescriptor:depthDescriptor];
+    XCTAssertNotNil(color);
+    XCTAssertNotNil(depth);
+    if (color == nil || depth == nil) {
+        return;
+    }
+
+    MTLTextureDescriptor *diffuseDescriptor =
+        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                           width:1 height:1 mipmapped:NO];
+    diffuseDescriptor.usage = MTLTextureUsageShaderRead;
+    diffuseDescriptor.storageMode = MTLStorageModeShared;
+    id<MTLTexture> diffuse = [device newTextureWithDescriptor:diffuseDescriptor];
+    const uint8_t white[4] = {255, 255, 255, 255};
+    [diffuse replaceRegion:MTLRegionMake2D(0, 0, 1, 1) mipmapLevel:0
+                 withBytes:white bytesPerRow:sizeof(white)];
+    MTLSamplerDescriptor *samplerDescriptor = HPL2MetalCreateSamplerDescriptor(
+        hpl::eTextureFilter_Nearest, NO,
+        hpl::eTextureWrap_Repeat, hpl::eTextureWrap_Repeat, &metalError);
+    XCTAssertNotNil(diffuse);
+    XCTAssertNotNil(samplerDescriptor);
+    if (diffuse == nil || samplerDescriptor == nil) {
+        return;
+    }
+    id<MTLSamplerState> sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
+    XCTAssertNotNil(sampler);
+    if (sampler == nil) {
+        return;
+    }
+
+    hpl::cMatrixf identity = hpl::cMatrixf::Identity;
+    HPL2MetalMatrix4x4 projection, modelView;
+    HPL2MetalMatrixError matrixError;
+    const BOOL projectionOK = HPL2MetalConvertOpenGLProjection(
+        &identity, &projection, &matrixError);
+    const BOOL modelViewOK = HPL2MetalConvertMatrix(&identity, &modelView, &matrixError);
+    XCTAssertTrue(projectionOK);
+    XCTAssertTrue(modelViewOK);
+    if (!projectionOK || !modelViewOK) {
+        return;
+    }
+
+    id<MTLCommandQueue> queue = [device newCommandQueue];
+    XCTAssertNotNil(queue);
+    if (queue == nil) {
+        return;
+    }
+    id<MTLCommandBuffer> command = [queue commandBuffer];
+    XCTAssertNotNil(command);
+    if (command == nil) {
+        return;
+    }
+    MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+    pass.colorAttachments[0].texture = color;
+    pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+    pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+    pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
+    pass.depthAttachment.texture = depth;
+    pass.depthAttachment.loadAction = MTLLoadActionClear;
+    pass.depthAttachment.storeAction = MTLStoreActionDontCare;
+    pass.depthAttachment.clearDepth = 1.0;
+    id<MTLRenderCommandEncoder> encoder = [command renderCommandEncoderWithDescriptor:pass];
+    XCTAssertNotNil(encoder);
+    if (encoder == nil) {
+        return;
+    }
+    XCTAssertTrue([draw encodeMesh:upload encoder:encoder projection:&projection
+                         modelView:&modelView textureUnitZero:diffuse sampler:sampler
+                        useDiffuse:YES error:&metalError],
+                  @"Parsed MSH indexed draw failed: %@", metalError);
+    [encoder endEncoding];
+    [command commit];
+    [command waitUntilCompleted];
+    XCTAssertEqual(command.status, MTLCommandBufferStatusCompleted);
+
+    uint8_t center[4] = {0, 0, 0, 0};
+    [color getBytes:center bytesPerRow:sizeof(center)
+              fromRegion:MTLRegionMake2D(width / 2, height / 2, 1, 1) mipmapLevel:0];
+    XCTAssertGreaterThan(center[0], 220);
+    XCTAssertGreaterThan(center[1], 220);
+    XCTAssertGreaterThan(center[2], 220);
+}
+
 - (void)testRejectsTruncatedInvalidAndUnsupportedMSHFiles
 {
     std::vector<uint8_t> valid = MakeMinimalHPL2MSH();
@@ -253,6 +406,14 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
     XCTAssertFalse(HPL2MetalReadStaticMSHSubmesh(trailing.data(), trailing.size(),
                                                   &submesh, &error));
     XCTAssertEqual(error, HPL2MetalMSHError_TrailingData);
+
+    // This malformed stream count would request gigabytes if the parser
+    // allocated before checking the available serialized vertex bytes.
+    std::vector<uint8_t> oversizedTruncated = MakeMinimalHPL2MSH(false, false, 500000000);
+    XCTAssertFalse(HPL2MetalReadStaticMSHSubmesh(oversizedTruncated.data(),
+                                                  oversizedTruncated.size(),
+                                                  &submesh, &error));
+    XCTAssertEqual(error, HPL2MetalMSHError_Truncated);
 }
 
 - (void)testRejectsUnsupportedSkinnedAndNodeHierarchyFeatures

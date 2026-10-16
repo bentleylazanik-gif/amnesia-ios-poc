@@ -288,6 +288,12 @@ bool ReadStaticMesh(ByteReader *reader, HPL2MetalMSHStaticSubmesh *mesh,
             SetError(error, HPL2MetalMSHError_ArithmeticOverflow);
             return false;
         }
+        // Do not allocate attacker-controlled sizes from a truncated file.
+        // Validate the serialized payload span before growing owned stream storage.
+        if (dataBytes > reader->Remaining()) {
+            SetError(error, HPL2MetalMSHError_Truncated);
+            return false;
+        }
         if (dataBytes > SIZE_MAX - 3) {
             SetError(error, HPL2MetalMSHError_ArithmeticOverflow);
             return false;
