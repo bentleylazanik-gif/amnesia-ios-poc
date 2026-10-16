@@ -5,11 +5,11 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Latest pushed checkpoint: `d0ac24ebc3f26f3c0068956b919fc0958c6264b3` on `main`; local HEAD, origin/main and ls-remote matched before the current presenter asset-loading edits.
+- Latest pushed checkpoint: `213c7adb50035f7f97d01f677e67e622fb937b16` on `main`; `38901341636` ran against it and exposed two app compile errors, now fixed in the local presenter source.
 - Runs `38861903111` (descriptor adapter), `38862662245` (Metal buffer uploader), `38863325630` (matrix), `38864375503` (initial indexed draw), `38867225798` (render state), `38867486652` (alpha/diffuse separation), and `38870203930` (native SDL Metal surface) all passed. See PORT_PROGRESS.md for per-run test/build counts.
 - Latest completed run `38870203930` verified `SDL_Metal_CreateView` app path: 25 core Simulator tests, device-SDK compile, unsigned app device/Simulator builds and IPA, plus visible screenshot test `testSDLAppPresentsMetalGeometryToDisplay` (1/0 failures; `SDL Metal indexed quad screen` attachment). This is synthetic geometry, not an Amnesia asset or physical iPhone run.
 - MSH reader run `38898274435` succeeded on `d0ac24e`: device-SDK parser compile and 4 MSH XCTest methods passed within 29 total Simulator tests (0 failures), app builds/IPA and native-surface UI passed. It supports static one-submesh MSH v7 only and does not prove compatibility with an actual shipped asset. HPL2 source checkout remains pinned at `acc95cd...`; its untracked stage is untouched.
-- Current uncommitted app improvement optionally imports a user-owned MSH v7 file from `Documents/HPL2Import/preview.msh`, auto-fits it, and uses the fixture only if the file is absent. The user file is not packaged. It preserves the material name but previews with white texture/unlit vertex color; app/asset path validation is pending CI.
+- App import path in `213c7ad` loads optional owner-provided `Documents/HPL2Import/preview.msh`, fits/draws a static MSH v7 submesh, and falls back to the explicitly synthetic fixture only if absent. `38901341636` passed 30/30 Simulator tests including EngineResource file read, but app device-SDK compile failed: unary negation is not defined for `cVector3f`, and `SDL_Log` was unavailable. Both errors were fixed locally with component-wise negation and `fprintf`; the app regression must rerun. User file is not packaged; only unlit vertex-color/white-texture preview, no Amnesia material/scene.
 
 ## Latest verification
 
@@ -28,8 +28,8 @@ Updated: 2026-10-16
 
 ## Next action
 
-1. The MSH parser milestone is verified by run `38898274435`; retain its 4 focused parser cases and host ASan/UBSan smoke results.
-2. Implement optional loading of owner-supplied `Documents/HPL2Import/preview.msh` through `EngineResourceAccess` + the static MSH reader, preserving the existing fixture only as a missing-file fallback. Keep material/texture and unsupported file features explicit.
-3. Add a parser/presenter XCTest for user-file load if practical, run local target/safety checks, and commit only after inspecting the diff.
-4. Push only if `origin/main` is still at `d0ac24ebc3f26f3c0068956b919fc0958c6264b3`; inspect the next full Actions run through completion. Never imply the generated fixture is an Amnesia asset.
+1. Verify the local compile corrections and inspect the complete `HPL2MetalWindowPresenter.mm` diff for lifetime/error handling; retain the successful 30-test evidence from failed run `38901341636` separately from its failed app-build result.
+2. Run project/YAML/plist/source-target checks and host ASan/UBSan reader smoke. No Xcode is installed in this Linux workspace.
+3. Confirm `origin/main` is still `213c7ad`, commit/push the two compile fixes and corrected checkpoints, then inspect the fresh Actions run through device build, Simulator build, IPA, and visible UI test.
+4. Only after app CI passes, consider a visual test that injects the generated MSH; do not describe generated fixture data as an Amnesia asset. Material/shader translation and legitimate user asset testing remain later work.
 5. Keep device-SDK builds, Simulator render tests, physical-iPhone evidence, and genuine Amnesia-scene evidence separate.

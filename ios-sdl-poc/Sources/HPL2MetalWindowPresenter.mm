@@ -130,8 +130,10 @@ static bool BuildPreviewMatrices(const HPL2MetalMeshView &mesh,
     const hpl::cVector3f center = (minimum + maximum) * 0.5f;
     const hpl::cVector3f fitScale(1.6f / maxExtent, 1.6f / maxExtent, 1.6f / maxExtent);
     const hpl::cMatrixf previewTransform = hpl::cMath::MatrixMul(
-        hpl::cMath::MatrixMul(hpl::cMath::MatrixScale(fitScale),
-                              hpl::cMath::MatrixTranslate(-center)),
+        hpl::cMath::MatrixMul(
+            hpl::cMath::MatrixScale(fitScale),
+            hpl::cMath::MatrixTranslate(
+                hpl::cVector3f(-center.x, -center.y, -center.z))),
         localAndScale);
     const hpl::cMatrixf glProjection = hpl::cMatrixf::Identity;
     HPL2MetalMatrixError matrixError;
@@ -307,7 +309,8 @@ static bool BuildSyntheticFixtureView(HPL2MetalMeshView *view,
             return nil;
         }
         loadedUserMesh = true;
-        SDL_Log("Loaded user-provided static HPL2 MSH submesh '%s' material '%s'; preview uses vertex colors/white texture.",
+        fprintf(stderr,
+                "Loaded user-provided static HPL2 MSH submesh '%s' material '%s'; preview uses vertex colors/white texture.\n",
                 importedSubmesh.name.c_str(), importedSubmesh.materialName.c_str());
         EngineResourceFree(mshBytes);
     } else if (readStatus == ENGINE_RESOURCE_NOT_FOUND) {
@@ -318,7 +321,8 @@ static bool BuildSyntheticFixtureView(HPL2MetalMeshView *view,
             }
             return nil;
         }
-        SDL_Log("No Documents/HPL2Import/preview.msh found; using synthetic HPL2-format fixture.");
+        fprintf(stderr,
+                "No Documents/HPL2Import/preview.msh found; using synthetic HPL2-format fixture.\n");
     } else {
         if (error != NULL) {
             *error = PresenterError(10, [NSString stringWithFormat:
