@@ -2,42 +2,34 @@
 
 Updated: 2026-10-16
 
-## Verified checkpoint
+## Repository
 
-- Repository checkout: `/tmp/tmp.VZQPoiHQ4P`, branch `main`, remote `origin` is `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Current committed baseline at recovery: `43f616046a5f6ae9d2c0eb459c0b360222d1ce4b`; local `main` and `origin/main` match. No staged changes were present.
-- Latest completed Actions run: `38806244632`, success: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38806244632
-  - Pinned upstream sparse checkout and XcodeGen project generation passed.
-  - HPL2 CRC, Quaternion, Math and Metal probe libraries compiled for iOS device SDK (compile only; no device execution).
-  - Eight XCTest methods passed on an iOS Simulator, including offscreen Metal triangle pixel readback, resource and math/frame tests.
-  - SDL app builds for device and Simulator SDKs, IPA packaging and artifact upload passed.
-  - Logs confirm `IOSMetalTriangleProbe.o` compiled under its own probe target and not under the SDLTouchPoC app target. The SDL app glob exclusion is verified in generated build behavior.
-  - The Metal probe is an offscreen Simulator test, not visible output, not a physical iPhone test, and not an HPL2 renderer.
-- The recovery checks confirmed no active command; run `38806244632` is complete. Current uncommitted changes are the SDL visible-triangle drawing, the SDLMetalVisible UI test/scheme/workflow step, and updated progress/task/session records. YAML, bash, plist, target wiring, host math/resource/frame-clock checks, and `git diff --check` pass; no Xcode binaries are available in this Linux workspace.
+- Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
+- Latest pushed checkpoint before this documentation update: local `HEAD` and `origin/main` both `60702b029728accdb065c0636e762291fa5423ec`. Recheck hashes before pushing further work.
+- No command is interrupted or still running. Current uncommitted files: `PORT_PROGRESS.md`, `PORT_TASKS.md`, and this checkpoint; these are the verified UI-run/HPL2-source-trace documentation updates.
 
-## Current local work (uncommitted; preserve)
+## Latest verification
 
-- `ios-sdl-poc/Sources/main.c`: explicitly selects SDL3's `metal` renderer and draws an original white triangle with `SDL_RenderGeometry`; retains the blue/red touch background, logs the selected renderer, queries logical window size each frame, and handles nonpositive size safely.
-- `ios-sdl-poc/Tests/SDLMetalVisibleTests/SDLMetalVisibleTests.m`: UI test launches the SDL app and checks the center screenshot for a bright triangle pixel; it attaches a screenshot on failure/success.
-- `ios-sdl-poc/project.yml`: separate SDLMetalVisibleTests UI-test target and scheme; the Metal probe remains excluded from the SDLTouchPoC source glob and is built only in its own test library.
-- `.github/workflows/ios-sdl-poc.yml`: a Simulator UI-test step and `.xcresult` upload with `if: always()` are present locally.
-- `ios-sdl-poc/Tests/SDLMetalVisibleTests/SDLMetalVisibleTests.m`: UI test captures the Simulator screen and asserts a bright center pixel for the triangle.
-- Local YAML, shell, plist, source membership, and `git diff --check` validate. SDL/API and Metal rendering are not yet validated after these visible/UI changes; no physical-device claim.
+- UI-visible Metal triangle workflow: run `38848851961`, success: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38848851961 (workflow head `7a0c509f6e39f6bec8f9b69cf1e3a8912ed27c6b`; later commits only updated docs / UI-test state handling).
+  - XcodeGen/project generation passed.
+  - 8 core XCTest methods passed, including CRC, quaternion/matrix, frame clock, resource behavior, and offscreen Metal rendering/readback/bounds/repeat checks.
+  - `testSDLAppPresentsMetalTriangleToDisplay` passed on an iOS Simulator: launched `org.example.sdltouchpoc`, captured the `SDL Metal triangle screen` attachment, and passed the bright-center-pixel assertion (1 UI test, 0 failures).
+  - Device-SDK compilation, unsigned SDL app device and Simulator SDK builds, IPA packaging, and app artifacts passed.
+  - Both `HPL2CRCSmoke.xcresult` and `SDLMetalVisible.xcresult` uploaded. The visible result artifact is available at https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38848851961/artifacts/12024439042.
+  - This is Simulator visible-rendering evidence only, not physical-iPhone evidence, and not an HPL2 renderer.
+- Earlier source-exclusion run `38779197725` passed; build logs confirmed the Metal probe object is compiled under its separate probe target and not the `SDLTouchPoC` app target.
+- Earlier detailed probe/core run `38806244632` passed eight Simulator tests, including offscreen Metal triangle pixel readback and invalid/oversized dimensions/repeated-render checks.
 
-## Last interrupted/unfinished operation
+## Current implementation boundary
 
-- No shell command was active at recovery. The latest completed operation is the local validation suite: YAML, Bash, plist, target/scheme/source exclusion, XCTest count, host HPL2 math harnesses, frame-clock harness, resource ASan/UBSan harness, and `git diff --check`. None of the new visible-triangle/UI-test changes have yet been pushed.
+- `ios-sdl-poc/Sources/main.c` selects SDL3's Metal renderer and draws an original triangle via `SDL_RenderGeometry`; SDL owns its drawable. Simulator screenshot pixel assertion passed.
+- No physical iPhone 11 Pro build/install/visual evidence is available. The iOS device-SDK build is compile/package evidence only.
+- Pinned HPL2 revision: `acc95cdedd6c94db89dc924eb9afa23185df562f`. `LowLevelGraphics.h` exposes 97 pure virtual methods; `Engine.cpp::CreateHPLEngine` selects only `eHplAPI_OpenGL`/`cSDLEngineSetup`; Amnesia `LuxBase.cpp::InitEngine` requests OpenGL; `Graphics.cpp` eagerly creates deferred, wireframe, and simple renderers, which load GLSL shader files. `cMeshCreator::CreatePlane` calls `CreateVertexBuffer`, defines position/normal/color/UV streams, adds four vertices and six indices, compiles tangents, then attaches the buffer to a `cSubMesh` with a material. This is a candidate for a testable HPL2-to-backend submission seam, but the path depends on wide graphics/resource interfaces. The source checkout has no game asset/shader corpus.
+- No HPL2 Metal backend, genuine Amnesia mesh/material/scene, or playable game has been built or rendered.
 
-## Immediate next steps
+## Next action
 
-1. Commit/push the current visible SDL Metal triangle and screenshot UI-test changes to `origin/main` after reviewing the exact diff.
-2. Inspect the new Actions run through completion; verify the screenshot assertion, device/Simulator app builds, and UI `.xcresult` upload.
-3. If any step fails, inspect the first actual failure and repair it without suppressing assertions; then rerun.
-4. Update `PORT_PROGRESS.md`, `PORT_TASKS.md`, and this checkpoint with the verified run ID/result; do not claim physical iPhone output.
-5. Continue with a small, compilable HPL2 `iLowLevelGraphics` Metal integration investigation.
-
-## Remaining boundary
-
-- The current C++/Metal math and Metal triangle tests are standalone probes.
-- The visible UI test and SDL Metal triangle are not yet verified on Simulator or device.
-- No HPL2 Metal backend, HPL2 scene, Amnesia level, or playable game has been built or rendered.
+1. Commit this evidence update after reviewing `git diff --check`; push only if `main` still matches `origin/main`.
+2. Continue with a narrow HPL2 source/dependency trace: inspect `cGraphics`, `cMeshCreator`, `iVertexBuffer`, and renderable submission to find the smallest useful HPL2-facing unit that can compile/test independently. Prefer a real exercised engine interface over scaffolding or 97 no-op methods.
+3. Before implementing a backend, make the proposed unit compile against the pinned headers/source with a host test or a CI build target; keep SDL triangle/probe tests separate.
+4. Keep device SDK builds, Simulator rendering, physical iPhone, and genuine HPL2 scene evidence distinct in all reporting.
