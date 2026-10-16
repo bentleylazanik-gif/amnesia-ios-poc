@@ -5,11 +5,11 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Last committed source checkpoint: `e739f6cf669bc0cd172aa6ccb2baed1e36a03274` on `main`; local HEAD and origin/main matched after push. It includes the descriptor adapter, Metal uploader, and Simulator test definitions.
-- Adapter Actions run `38861903111` completed successfully: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38861903111. The new adapter static library compiled for device SDK; the Simulator suite ran 14 tests (8 foundation + 6 adapter), 0 failures; app device/Simulator builds, IPA, visible triangle UI test, and artifacts passed.
-- Uploader CI run `38862662245` tests the uploader source checkpoint. It was started with a background `gh run watch`; inspect its final logs when notified.
-- Current uncommitted milestone: `HPL2MetalMatrixAdapter.{h,cpp}` converts HPL2 `m[row][column]` storage to Metal column-major and remaps OpenGL projection depth [-w,+w] to Metal [0,+w], with XCTest and XcodeGen wiring. Host GCC strict-warning + ASan/UBSan smoke passed for matrix transform and depth endpoints. This is CPU transform conversion only; Simulator CI remains pending. Preserve these changes. The HPL2 source worktree remains pinned `acc95cd...`; its pre-existing untracked staged files are untouched.
-- YAML/Bash/XcodeGen target wiring and app-source exclusions pass locally. Xcode/XcodeGen are unavailable in Linux, so matrix/uploader Obj-C++ Simulator tests and iOS SDK builds require Actions.
+- Last committed checkpoint: `46ebd5f822ef48691cb8f2ecfd0fe59095c7c218` on `main`; local HEAD and origin/main matched after push. It contains descriptor adapter, MTLBuffer uploader, and matrix conversion.
+- Adapter run `38861903111` succeeded: device-SDK adapter compile, 14 core/adapter Simulator tests, app SDK builds/IPA and visible UI test all passed.
+- Uploader run `38862662245` succeeded on `e739f6c`: 15 core/adapter/uploader Simulator tests, Metal buffer byte/descriptor assertions, device-SDK and app builds/IPA and visible UI test passed. Link: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38862662245.
+- Matrix run `38863325630` completed successfully on `46ebd5f`: 18 core/adapter/matrix Simulator tests (including 3 matrix tests), device-SDK compilation, app SDK builds/IPA, and visible UI test all passed.
+- Current uncommitted milestone: `HPL2MetalMeshDraw.{h,mm}` plus a Simulator test that feeds the HPL2 `iVertexBuffer` fixture through descriptor→MTLBuffer→MSL indexed quad draw/readback. It is an unlit synthetic HPL2-shaped fixture, not an asset or Amnesia mesh. XcodeGen target is separate and excluded from SDL app. Local YAML/Bash/target checks and GCC ASan/UBSan adapter/matrix smokes pass; Obj-C++/Metal CI is pending. The HPL2 source worktree remains pinned `acc95cd...`; pre-existing untracked files untouched.
 
 ## Latest verification
 
@@ -32,8 +32,7 @@ Updated: 2026-10-16
 
 ## Next action
 
-1. Inspect run `38862662245` for the Metal uploader source through completion; diagnose any first failure without weakening tests.
-2. Run final local YAML/Bash/host ASan checks for the matrix adapter; verify it is excluded from the SDL app and wired only into the core test scheme.
-3. Commit/push the matrix adapter only after confirming `origin/main` remains `e739f6cf669bc0cd172aa6ccb2baed1e36a03274`; inspect its Actions run through completion.
-4. If green, continue to a simple-pass Metal encoder/pipeline and HPL2 draw submission; preserve the `iVertexBuffer` byte-length limitation. Buffers/matrices alone are not an HPL2 renderer.
+1. Finish local review of the uncommitted `HPL2MetalMeshDraw` path; verify target uniqueness, app exclusions, source wiring, and host sanitizer smokes.
+2. Commit/push only after confirming `origin/main` remains at `46ebd5f822ef48691cb8f2ecfd0fe59095c7c218`; inspect the resulting Actions run through completion, including MSL compilation, offscreen indexed draw/readback XCTest, device-SDK compilation, UI regression, and artifacts.
+3. Fix any real compile/render issue without weakening assertions. If green, continue from the synthetic unlit draw to HPL2 depth/cull/alpha/blend/sampler-state mapping and SDL Metal surface integration. Current tests do not render an Amnesia mesh or scene.
 5. Keep device-SDK builds, Simulator rendering, physical-iPhone evidence, and genuine Amnesia-scene evidence separate.

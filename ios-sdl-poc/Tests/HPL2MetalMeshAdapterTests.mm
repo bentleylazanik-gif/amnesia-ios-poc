@@ -1,7 +1,7 @@
 #import <XCTest/XCTest.h>
 #import <Metal/Metal.h>
 
-#import "HPL2MetalMeshUploader.h"
+#import "HPL2MetalMeshDraw.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -245,6 +245,150 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     for (NSUInteger index = 0; index < buffer.indices.size(); ++index) {
         XCTAssertEqual(uploadedIndices[index], buffer.indices[index]);
     }
+}
+
+- (void)testHPL2VertexBufferFixtureUploadsAndDrawsIndexedQuad
+{
+    TestHPL2VertexBuffer buffer;
+    buffer.vertexCount = 4;
+    buffer.positionComponents = 4;
+    buffer.normalComponents = 3;
+    buffer.colorComponents = 4;
+    buffer.textureComponents = 3;
+    buffer.tangentComponents = 4;
+    buffer.positions = {
+        -0.8f, -0.8f, 0.0f, 1.0f,
+         0.8f, -0.8f, 0.0f, 1.0f,
+         0.8f,  0.8f, 0.0f, 1.0f,
+        -0.8f,  0.8f, 0.0f, 1.0f
+    };
+    buffer.normals.assign(12, 0.0f);
+    buffer.colors.assign(16, 1.0f);
+    buffer.texture0.assign(12, 0.0f);
+    buffer.tangents.assign(16, 0.0f);
+    buffer.indices = {0, 1, 2, 2, 3, 0};
+
+    HPL2MetalMeshView view;
+    HPL2MetalMeshError adapterError;
+    XCTAssertTrue(HPL2MetalBuildMeshViewFromVertexBuffer(
+        &buffer, hpl::eVertexBufferDrawType_Tri, &view, &adapterError));
+
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    XCTAssertNotNil(device);
+    if (device == nil) {
+        return;
+    }
+    NSError *uploadError = nil;
+    HPL2MetalMeshUpload *upload =
+        [HPL2MetalMeshUpload uploadMeshView:&view device:device error:&uploadError];
+    XCTAssertNotNil(upload, @"HPL2 vertex fixture upload failed: %@", uploadError);
+    if (upload == nil) {
+        return;
+    }
+
+    NSError *drawError = nil;
+    HPL2MetalMeshDraw *draw =
+        [HPL2MetalMeshDraw drawPathWithDevice:device
+                                   meshUpload:upload
+                                  colorFormat:MTLPixelFormatRGBA8Unorm
+                                        error:&drawError];
+    XCTAssertNotNil(draw, @"Could not create unlit Metal pass: %@", drawError);
+    if (draw == nil) {
+        return;
+    }
+
+    const NSUInteger width = 64;
+    const NSUInteger height = 64;
+    MTLTextureDescriptor *targetDescriptor =
+        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                           width:width
+                                                          height:height
+                                                       mipmapped:NO];
+    targetDescriptor.usage = MTLTextureUsageRenderTarget;
+    targetDescriptor.storageMode = MTLStorageModeShared;
+    id<MTLTexture> target = [device newTextureWithDescriptor:targetDescriptor];
+    XCTAssertNotNil(target);
+    if (target == nil) {
+        return;
+    }
+
+    MTLTextureDescriptor *diffuseDescriptor =
+        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+                                                           width:1
+                                                          height:1
+                                                       mipmapped:NO];
+    diffuseDescriptor.usage = MTLTextureUsageShaderRead;
+    diffuseDescriptor.storageMode = MTLStorageModeShared;
+    id<MTLTexture> diffuse = [device newTextureWithDescriptor:diffuseDescriptor];
+    XCTAssertNotNil(diffuse);
+    if (diffuse == nil) {
+        return;
+    }
+    const uint8_t whitePixel[4] = {255, 255, 255, 255};
+    [diffuse replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+               mipmapLevel:0
+                 withBytes:whitePixel
+               bytesPerRow:sizeof(whitePixel)];
+    MTLSamplerDescriptor *samplerDescriptor = [MTLSamplerDescriptor new];
+    samplerDescriptor.minFilter = MTLSamplerMinMagFilterNearest;
+    samplerDescriptor.magFilter = MTLSamplerMinMagFilterNearest;
+    id<MTLSamplerState> sampler = [device newSamplerStateWithDescriptor:samplerDescriptor];
+    XCTAssertNotNil(sampler);
+    if (sampler == nil) {
+        return;
+    }
+
+    hpl::cMatrixf identity;
+    for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 4; ++column) {
+            identity.m[row][column] = row == column ? 1.0f : 0.0f;
+        }
+    }
+    HPL2MetalMatrix4x4 projection;
+    HPL2MetalMatrix4x4 modelView;
+    HPL2MetalMatrixError matrixError;
+    XCTAssertTrue(HPL2MetalConvertOpenGLProjection(&identity, &projection, &matrixError));
+    XCTAssertTrue(HPL2MetalConvertMatrix(&identity, &modelView, &matrixError));
+
+    MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+    pass.colorAttachments[0].texture = target;
+    pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+    pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+    pass.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
+    id<MTLCommandQueue> queue = [device newCommandQueue];
+    id<MTLCommandBuffer> command = [queue commandBuffer];
+    id<MTLRenderCommandEncoder> encoder = [command renderCommandEncoderWithDescriptor:pass];
+    XCTAssertNotNil(encoder);
+    if (encoder == nil) {
+        return;
+    }
+    XCTAssertTrue([draw encodeMesh:upload
+                            encoder:encoder
+                         projection:&projection
+                          modelView:&modelView
+                      diffuseTexture:diffuse
+                              sampler:sampler
+                           useDiffuse:YES
+                                error:&drawError],
+                  @"Indexed Metal draw failed: %@", drawError);
+    [encoder endEncoding];
+    [command commit];
+    [command waitUntilCompleted];
+    XCTAssertEqual(command.status, MTLCommandBufferStatusCompleted,
+                   @"Metal draw command failed: %@", command.error);
+
+    std::vector<uint8_t> pixels(width * height * 4);
+    [target getBytes:pixels.data()
+         bytesPerRow:width * 4
+          fromRegion:MTLRegionMake2D(0, 0, width, height)
+         mipmapLevel:0];
+    const size_t center = ((height / 2) * width + width / 2) * 4;
+    XCTAssertGreaterThan(pixels[center], 240);
+    XCTAssertGreaterThan(pixels[center + 1], 240);
+    XCTAssertGreaterThan(pixels[center + 2], 240);
+    XCTAssertEqual(pixels[center + 3], 255);
+    XCTAssertEqual(pixels[3], 255);
+    XCTAssertEqual(pixels[0], 0);
 }
 
 - (void)testByteColorUsesTheNormalizedMetalAttributeFormat

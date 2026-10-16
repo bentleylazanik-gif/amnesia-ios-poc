@@ -26,6 +26,8 @@ targets:
           - HPL2MetalMeshUploader.mm
           - HPL2MetalMatrixAdapter.h
           - HPL2MetalMatrixAdapter.cpp
+          - HPL2MetalMeshDraw.h
+          - HPL2MetalMeshDraw.mm
     info:
       path: Info.plist
     dependencies:
@@ -135,6 +137,23 @@ targets:
         HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include $(SRCROOT)/Sources"
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
 
+  HPL2MetalMeshDraw:
+    type: library.static
+    platform: iOS
+    sources:
+      - path: Sources/HPL2MetalMeshDraw.mm
+    dependencies:
+      - target: HPL2MetalMeshUploader
+      - target: HPL2MetalMatrixAdapter
+      - sdk: Metal.framework
+      - sdk: Foundation.framework
+    settings:
+      base:
+        PRODUCT_NAME: HPL2MetalMeshDraw
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include $(SRCROOT)/Sources"
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+        CLANG_ENABLE_OBJC_ARC: "YES"
+
   HPL2CRCTestHost:
     type: application
     platform: iOS
@@ -168,6 +187,7 @@ targets:
       - target: HPL2MetalMeshAdapter
       - target: HPL2MetalMeshUploader
       - target: HPL2MetalMatrixAdapter
+      - target: HPL2MetalMeshDraw
       - target: HPL2CRCTestHost
       - sdk: Metal.framework
       - sdk: Foundation.framework
@@ -203,6 +223,7 @@ schemes:
         HPL2MetalMeshAdapter: all
         HPL2MetalMeshUploader: all
         HPL2MetalMatrixAdapter: all
+        HPL2MetalMeshDraw: all
         HPL2CRCTestHost: all
         HPL2CRCTests: [test]
     test:
