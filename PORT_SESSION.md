@@ -5,7 +5,7 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Latest pushed checkpoint: local `HEAD` and `origin/main` both `164959aadb3ee54e12e833ca893f79c95ee72985`. The last pushed CI-triggering source checkpoint is `60702b029728accdb065c0636e762291fa5423ec`; the subsequent `164959a` changes only port documentation, outside the workflow path filters.
+- Latest pushed checkpoint before the current HPL2 trace update: local `HEAD` and `origin/main` both `79c3ac1014e94489130d3407fd230fa684df43b6`. The last CI-triggering source checkpoint is `60702b029728accdb065c0636e762291fa5423ec`; later commits only change port documentation, outside the workflow path filters.
 - No command is interrupted or still running. Current uncommitted files: `PORT_PROGRESS.md`, `PORT_TASKS.md`, and this checkpoint; these are the verified UI-run/HPL2-source-trace documentation updates.
 
 ## Latest verification
@@ -30,6 +30,6 @@ Updated: 2026-10-16
 ## Next action
 
 1. Commit this evidence update after reviewing `git diff --check`; push only if `main` still matches `origin/main`.
-2. Continue with a narrow HPL2 source/dependency trace: inspect `cGraphics`, `cMeshCreator`, `iVertexBuffer`, and renderable submission to find the smallest useful HPL2-facing unit that can compile/test independently. Prefer a real exercised engine interface over scaffolding or 97 no-op methods.
-3. Before implementing a backend, make the proposed unit compile against the pinned headers/source with a host test or a CI build target; keep SDL triangle/probe tests separate.
+2. The `cMeshCreator::CreatePlane` → `cRendererSimple::RenderObjects` path is now mapped: HPL2 builds position/normal/color/UV/index arrays; renderer sets depth/blend/alpha/channel, binds program/texture/matrix/buffer, then calls `iVertexBuffer::Draw`. Implement the next small step as a tested adapter from actual HPL2 vertex arrays to Metal vertex/index upload layout (stride, optional attributes, index bounds), without claiming it is an HPL2 renderer.
+3. Make this adapter compile against the pinned HPL2 headers and add host/CI tests; then exercise it with `CreatePlane`-generated data before proceeding to Metal encoder/pipeline and simple-pass state mapping.
 4. Keep device SDK builds, Simulator rendering, physical iPhone, and genuine HPL2 scene evidence distinct in all reporting.
