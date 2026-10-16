@@ -218,6 +218,36 @@ jobs:
             ios-sdl-poc/.build/DerivedData/Build/Products/Debug-iphonesimulator/SDLTouchPoC.app
           if-no-files-found: error
 
+      - name: Run visible SDL Metal triangle UI test on iOS Simulator
+        working-directory: ios-sdl-poc
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIMULATOR_UDID="$(xcrun simctl list devices available -j | python3 -c 'import json, sys; d=json.load(sys.stdin)["devices"]; print(next((x["udid"] for runtime in sorted(d, reverse=True) for x in d[runtime] if x.get("isAvailable") and x.get("name", "").startswith("iPhone")), ""))')"
+          if [[ -z "${SIMULATOR_UDID}" ]]; then
+            echo "::error::No available iPhone Simulator device was found for the SDL UI test"
+            exit 1
+          fi
+          echo "::notice::Launching the SDL app and checking its rendered triangle on iOS Simulator ${SIMULATOR_UDID}; this is not a physical-device test."
+          RESULT_BUNDLE="${RUNNER_TEMP}/SDLMetalVisible.xcresult"
+          rm -rf "${RESULT_BUNDLE}"
+          xcodebuild test \
+            -project SDLTouchPoC.xcodeproj \
+            -scheme SDLMetalVisible \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
+            -derivedDataPath .build/SDLMetalVisibleSimulator \
+            -resultBundlePath "${RESULT_BUNDLE}"
+
+      - name: Upload visible-rendering UI test result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDLMetalVisible.xcresult
+          path: ${{ runner.temp }}/SDLMetalVisible.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+
   upload-ipa-to-existing-release:
     name: Add IPA to an existing GitHub Release
     needs: build

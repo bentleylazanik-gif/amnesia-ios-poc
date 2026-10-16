@@ -99,12 +99,14 @@ SDL_AppResult SDLCALL SDL_AppInit(void **appstate, int argc, char *argv[])
         return SDL_APP_FAILURE;
     }
 
-    app_state.renderer = SDL_CreateRenderer(app_state.window, NULL);
+    // Select SDL's Metal renderer explicitly; SDL owns the window drawable and layer.
+    app_state.renderer = SDL_CreateRenderer(app_state.window, "metal");
     if (app_state.renderer == NULL) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "SDL_CreateRenderer failed: %s", SDL_GetError());
+                     "SDL_CreateRenderer(metal) failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+    SDL_Log("Selected SDL renderer: %s", SDL_GetRendererName(app_state.renderer));
 
     if (SDL_GetWindowSizeInPixels(app_state.window,
                                   &app_state.drawable_width,
@@ -173,9 +175,37 @@ SDL_AppResult SDLCALL SDL_AppIterate(void *state)
         SDL_SetRenderDrawColor(app->renderer, 34, 90, 145, 255);
     }
 
-    if (!SDL_RenderClear(app->renderer) || !SDL_RenderPresent(app->renderer)) {
+    int logical_width = 0;
+    int logical_height = 0;
+    if (!SDL_GetWindowSize(app->window, &logical_width, &logical_height)) {
         SDL_LogError(SDL_LOG_CATEGORY_RENDER,
-                     "Rendering failed: %s", SDL_GetError());
+                     "Could not query logical window size: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+    if (logical_width <= 0 || logical_height <= 0) {
+        return SDL_APP_CONTINUE;
+    }
+
+    const SDL_FColor triangle_color = {1.0f, 1.0f, 1.0f, 1.0f};
+    const SDL_Vertex triangle[3] = {
+        {{logical_width * 0.5f, logical_height * 0.22f}, triangle_color, {0.0f, 0.0f}},
+        {{logical_width * 0.24f, logical_height * 0.76f}, triangle_color, {0.0f, 0.0f}},
+        {{logical_width * 0.76f, logical_height * 0.76f}, triangle_color, {0.0f, 0.0f}}
+    };
+
+    if (!SDL_RenderClear(app->renderer)) {
+        SDL_LogError(SDL_LOG_CATEGORY_RENDER,
+                     "Render clear failed: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+    if (!SDL_RenderGeometry(app->renderer, NULL, triangle, 3, NULL, 0)) {
+        SDL_LogError(SDL_LOG_CATEGORY_RENDER,
+                     "Triangle draw failed: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+    if (!SDL_RenderPresent(app->renderer)) {
+        SDL_LogError(SDL_LOG_CATEGORY_RENDER,
+                     "Render present failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 

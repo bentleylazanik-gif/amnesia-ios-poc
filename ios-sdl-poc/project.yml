@@ -29,6 +29,21 @@ targets:
       base:
         PRODUCT_NAME: SDLTouchPoC
 
+  SDLMetalVisibleTests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Tests/SDLMetalVisibleTests/SDLMetalVisibleTests.m
+    dependencies:
+      - target: SDLTouchPoC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.example.sdltouchpoc.uitests
+        PRODUCT_NAME: SDLMetalVisibleTests
+        TEST_TARGET_NAME: SDLTouchPoC
+        GENERATE_INFOPLIST_FILE: YES
+
   HPL2CRC:
     type: library.static
     platform: iOS
@@ -121,6 +136,14 @@ schemes:
     build:
       targets:
         SDLTouchPoC: all
+  SDLMetalVisible:
+    build:
+      targets:
+        SDLTouchPoC: all
+        SDLMetalVisibleTests: [test]
+    test:
+      targets:
+        - SDLMetalVisibleTests
   HPL2CRCSmoke:
     build:
       targets:
