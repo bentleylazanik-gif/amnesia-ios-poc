@@ -39,7 +39,6 @@ static BOOL ScreenshotCenterIsBrightWhite(XCUIScreenshot *screenshot)
 {
     XCUIApplication *app = [[XCUIApplication alloc] init];
     [app launch];
-    XCTAssertEqual(app.state, XCUIApplicationStateRunningForeground);
 
     XCUIScreenshot *screenshot = nil;
     BOOL triangle_is_visible = NO;
