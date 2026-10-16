@@ -9,7 +9,13 @@
 #import "HPL2MetalMatrixAdapter.h"
 #import "HPL2MetalMeshUploader.h"
 #import "HPL2MetalRenderStateAdapter.h"
+#import "HPL2MetalMSHReader.h"
 
+#include "EngineResourceAccess.h"
+#include "math/Math.h"
+
+#include <cfloat>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -37,6 +43,151 @@ static void CopyErrorMessage(char *buffer, size_t capacity, NSError *error)
     }
     const char *message = error.localizedDescription.UTF8String;
     snprintf(buffer, capacity, "%s", message != NULL ? message : "Metal presenter failed");
+}
+
+static bool BuildPreviewMatrices(const HPL2MetalMeshView &mesh,
+                                 const HPL2MetalMSHStaticSubmesh *submesh,
+                                 HPL2MetalMatrix4x4 *projection,
+                                 HPL2MetalMatrix4x4 *modelView,
+                                 NSError **error)
+{
+    const HPL2MetalVertexAttribute *position = NULL;
+    for (size_t i = 0; i < mesh.attributeCount; ++i) {
+        if (mesh.attributes[i].semantic == hpl::eVertexBufferElement_Position) {
+            position = &mesh.attributes[i];
+            break;
+        }
+    }
+    if (position == NULL || mesh.vertexCount == 0 || position->bytes == NULL ||
+        (position->metalFormat != HPL2MetalVertexFormat_Float3 &&
+         position->metalFormat != HPL2MetalVertexFormat_Float4) ||
+        position->stride == 0 || position->stride % sizeof(float) != 0) {
+        if (error != NULL) {
+            *error = PresenterError(20, @"The supplied MSH has no supported position stream.");
+        }
+        return false;
+    }
+
+    const size_t components = position->stride / sizeof(float);
+    if ((components != 3 && components != 4) ||
+        mesh.vertexCount > SIZE_MAX / position->stride ||
+        position->byteLength < mesh.vertexCount * position->stride) {
+        if (error != NULL) {
+            *error = PresenterError(21, @"The supplied MSH position stream has an invalid stride/length.");
+        }
+        return false;
+    }
+    const float *positions = static_cast<const float *>(position->bytes);
+    const hpl::cMatrixf localTransform = submesh != NULL
+        ? submesh->localTransform : hpl::cMatrixf::Identity;
+    const hpl::cVector3f modelScale = submesh != NULL
+        ? submesh->modelScale : hpl::cVector3f(1.0f, 1.0f, 1.0f);
+    const hpl::cMatrixf localAndScale = hpl::cMath::MatrixMul(
+        localTransform, hpl::cMath::MatrixScale(modelScale));
+
+    hpl::cVector3f minimum(FLT_MAX, FLT_MAX, FLT_MAX);
+    hpl::cVector3f maximum(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+    for (size_t i = 0; i < mesh.vertexCount; ++i) {
+        const float *vertex = positions + i * components;
+        if (components == 4 && (!std::isfinite(vertex[3]) || std::fabs(vertex[3] - 1.0f) > 1e-5f)) {
+            if (error != NULL) {
+                *error = PresenterError(22, @"Preview currently requires affine HPL2 position w=1.");
+            }
+            return false;
+        }
+        if (!std::isfinite(vertex[0]) || !std::isfinite(vertex[1]) ||
+            !std::isfinite(vertex[2])) {
+            if (error != NULL) {
+                *error = PresenterError(23, @"The MSH position stream contains non-finite values.");
+            }
+            return false;
+        }
+        const hpl::cVector3f transformed = hpl::cMath::MatrixMul(
+            localAndScale, hpl::cVector3f(vertex[0], vertex[1], vertex[2]));
+        if (!std::isfinite(transformed.x) || !std::isfinite(transformed.y) ||
+            !std::isfinite(transformed.z)) {
+            if (error != NULL) {
+                *error = PresenterError(23, @"The transformed MSH positions are non-finite.");
+            }
+            return false;
+        }
+        minimum.x = std::fmin(minimum.x, transformed.x);
+        minimum.y = std::fmin(minimum.y, transformed.y);
+        minimum.z = std::fmin(minimum.z, transformed.z);
+        maximum.x = std::fmax(maximum.x, transformed.x);
+        maximum.y = std::fmax(maximum.y, transformed.y);
+        maximum.z = std::fmax(maximum.z, transformed.z);
+    }
+    const hpl::cVector3f extent = maximum - minimum;
+    const float maxExtent = std::fmax(extent.x, std::fmax(extent.y, extent.z));
+    if (!std::isfinite(maxExtent) || maxExtent <= 1e-6f) {
+        if (error != NULL) {
+            *error = PresenterError(24, @"The MSH geometry has zero or invalid extent.");
+        }
+        return false;
+    }
+
+    const hpl::cVector3f center = (minimum + maximum) * 0.5f;
+    const hpl::cVector3f fitScale(1.6f / maxExtent, 1.6f / maxExtent, 1.6f / maxExtent);
+    const hpl::cMatrixf previewTransform = hpl::cMath::MatrixMul(
+        hpl::cMath::MatrixMul(hpl::cMath::MatrixScale(fitScale),
+                              hpl::cMath::MatrixTranslate(-center)),
+        localAndScale);
+    const hpl::cMatrixf glProjection = hpl::cMatrixf::Identity;
+    HPL2MetalMatrixError matrixError;
+    if (!HPL2MetalConvertOpenGLProjection(&glProjection, projection, &matrixError) ||
+        !HPL2MetalConvertMatrix(&previewTransform, modelView, &matrixError)) {
+        if (error != NULL) {
+            *error = PresenterError(25, @"Could not convert the MSH preview matrices.");
+        }
+        return false;
+    }
+    return true;
+}
+
+static bool BuildSyntheticFixtureView(HPL2MetalMeshView *view,
+                                      HPL2MetalMeshError *error)
+{
+    static const float positions[16] = {
+        -0.8f, -0.8f, 0.0f, 1.0f,
+         0.8f, -0.8f, 0.0f, 1.0f,
+         0.8f,  0.8f, 0.0f, 1.0f,
+        -0.8f,  0.8f, 0.0f, 1.0f
+    };
+    static const float normals[12] = {
+        0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f
+    };
+    static const float colors[16] = {
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
+    };
+    static const float uv[12] = {
+        0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f
+    };
+    static const float tangents[16] = {
+        1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f
+    };
+    static const unsigned int indices[6] = {0, 1, 2, 2, 3, 0};
+    const HPL2MetalVertexStreamView streams[] = {
+        {hpl::eVertexBufferElement_Position, hpl::eVertexBufferElementFormat_Float, 4,
+         positions, sizeof(positions)},
+        {hpl::eVertexBufferElement_Normal, hpl::eVertexBufferElementFormat_Float, 3,
+         normals, sizeof(normals)},
+        {hpl::eVertexBufferElement_Color0, hpl::eVertexBufferElementFormat_Float, 4,
+         colors, sizeof(colors)},
+        {hpl::eVertexBufferElement_Texture0, hpl::eVertexBufferElementFormat_Float, 3,
+         uv, sizeof(uv)},
+        {hpl::eVertexBufferElement_Texture1Tangent, hpl::eVertexBufferElementFormat_Float, 4,
+         tangents, sizeof(tangents)}
+    };
+    const HPL2MetalMeshSourceView source = {
+        hpl::eVertexBufferDrawType_Tri, 4, streams, sizeof(streams) / sizeof(streams[0]),
+        indices, sizeof(indices) / sizeof(indices[0]), sizeof(indices), -1
+    };
+    return HPL2MetalBuildMeshView(&source, view, error);
 }
 
 @interface HPL2MetalWindowPresenterImpl : NSObject
@@ -96,72 +247,108 @@ static void CopyErrorMessage(char *buffer, size_t capacity, NSError *error)
         return nil;
     }
 
-    // This is an original four-vertex HPL2-format fixture until a real engine
-    // mesh/resource manager supplies a borrowed iVertexBuffer at runtime.
-    const float positions[16] = {
-        -0.8f, -0.8f, 0.0f, 1.0f,
-         0.8f, -0.8f, 0.0f, 1.0f,
-         0.8f,  0.8f, 0.0f, 1.0f,
-        -0.8f,  0.8f, 0.0f, 1.0f
-    };
-    const float normals[12] = {
-        0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f
-    };
-    const float colors[16] = {
-        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
-        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
-    };
-    const float uv[12] = {
-        0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f
-    };
-    const float tangents[16] = {
-        1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-        1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f
-    };
-    const unsigned int indices[6] = {0, 1, 2, 2, 3, 0};
-    const HPL2MetalVertexStreamView streams[] = {
-        {hpl::eVertexBufferElement_Position, hpl::eVertexBufferElementFormat_Float,
-         4, positions, sizeof(positions)},
-        {hpl::eVertexBufferElement_Normal, hpl::eVertexBufferElementFormat_Float,
-         3, normals, sizeof(normals)},
-        {hpl::eVertexBufferElement_Color0, hpl::eVertexBufferElementFormat_Float,
-         4, colors, sizeof(colors)},
-        {hpl::eVertexBufferElement_Texture0, hpl::eVertexBufferElementFormat_Float,
-         3, uv, sizeof(uv)},
-        {hpl::eVertexBufferElement_Texture1Tangent, hpl::eVertexBufferElementFormat_Float,
-         4, tangents, sizeof(tangents)}
-    };
-    const HPL2MetalMeshSourceView source = {
-        hpl::eVertexBufferDrawType_Tri,
-        4,
-        streams,
-        sizeof(streams) / sizeof(streams[0]),
-        indices,
-        sizeof(indices) / sizeof(indices[0]),
-        sizeof(indices),
-        -1
-    };
     HPL2MetalMeshView meshView;
     HPL2MetalMeshError meshError;
-    if (!HPL2MetalBuildMeshView(&source, &meshView, &meshError)) {
+    HPL2MetalMSHStaticSubmesh importedSubmesh;
+    bool loadedUserMesh = false;
+
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSURL *documentsURL = [fileManager URLsForDirectory:NSDocumentDirectory
+                                               inDomains:NSUserDomainMask].firstObject;
+    if (documentsURL == nil) {
         if (error != NULL) {
-            *error = PresenterError(5, [NSString stringWithFormat:
-                @"Could not describe the HPL2-format startup fixture (error %d).", meshError]);
+            *error = PresenterError(5, @"Could not resolve the app Documents directory.");
         }
         return nil;
     }
+    NSURL *importDirectory = [documentsURL URLByAppendingPathComponent:@"HPL2Import"
+                                                            isDirectory:YES];
+    NSError *directoryError = nil;
+    if (![fileManager createDirectoryAtURL:importDirectory
+               withIntermediateDirectories:YES
+                                attributes:nil
+                                     error:&directoryError]) {
+        if (error != NULL) {
+            *error = PresenterError(6, @"Could not create Documents/HPL2Import.", directoryError);
+        }
+        return nil;
+    }
+
+    NSString *documentsPath = documentsURL.path;
+    const char *documentsRoot = documentsPath.UTF8String;
+    if (documentsRoot == NULL) {
+        if (error != NULL) {
+            *error = PresenterError(6, @"Could not encode the Documents path as UTF-8.");
+        }
+        return nil;
+    }
+    unsigned char *mshBytes = NULL;
+    size_t mshByteLength = 0;
+    const EngineResourceStatus readStatus = EngineResourceReadFile(
+        documentsRoot, "HPL2Import/preview.msh", &mshBytes, &mshByteLength);
+    if (readStatus == ENGINE_RESOURCE_OK) {
+        HPL2MetalMSHError mshError;
+        if (!HPL2MetalReadStaticMSHSubmesh(mshBytes, mshByteLength,
+                                           &importedSubmesh, &mshError)) {
+            EngineResourceFree(mshBytes);
+            if (error != NULL) {
+                *error = PresenterError(7, [NSString stringWithFormat:
+                    @"Could not parse user MSH v7 static-submesh file (error %d).", mshError]);
+            }
+            return nil;
+        }
+        if (!importedSubmesh.BuildMetalMeshView(&meshView, &meshError)) {
+            EngineResourceFree(mshBytes);
+            if (error != NULL) {
+                *error = PresenterError(8, [NSString stringWithFormat:
+                    @"The user MSH streams are unsupported by the Metal preview (error %d).",
+                    meshError]);
+            }
+            return nil;
+        }
+        loadedUserMesh = true;
+        SDL_Log("Loaded user-provided static HPL2 MSH submesh '%s' material '%s'; preview uses vertex colors/white texture.",
+                importedSubmesh.name.c_str(), importedSubmesh.materialName.c_str());
+        EngineResourceFree(mshBytes);
+    } else if (readStatus == ENGINE_RESOURCE_NOT_FOUND) {
+        if (!BuildSyntheticFixtureView(&meshView, &meshError)) {
+            if (error != NULL) {
+                *error = PresenterError(9, [NSString stringWithFormat:
+                    @"Could not build the HPL2-format fallback fixture (error %d).", meshError]);
+            }
+            return nil;
+        }
+        SDL_Log("No Documents/HPL2Import/preview.msh found; using synthetic HPL2-format fixture.");
+    } else {
+        if (error != NULL) {
+            *error = PresenterError(10, [NSString stringWithFormat:
+                @"Could not read Documents/HPL2Import/preview.msh (resource status %d).",
+                readStatus]);
+        }
+        return nil;
+    }
+
+    HPL2MetalMatrix4x4 previewProjection;
+    HPL2MetalMatrix4x4 previewModelView;
+    const HPL2MetalMSHStaticSubmesh *submeshForPreview =
+        loadedUserMesh ? &importedSubmesh : NULL;
+    if (!BuildPreviewMatrices(meshView, submeshForPreview,
+                              &previewProjection, &previewModelView, error)) {
+        return nil;
+    }
+
     NSError *metalError = nil;
     self.meshUpload = [HPL2MetalMeshUpload uploadMeshView:&meshView
                                                    device:self.device
                                                     error:&metalError];
     if (self.meshUpload == nil) {
         if (error != NULL) {
-            *error = PresenterError(6, @"Could not upload the HPL2-format startup fixture.", metalError);
+            *error = PresenterError(11, @"Could not upload the HPL2 mesh to Metal.", metalError);
         }
         return nil;
     }
+    _projection = previewProjection;
+    _modelView = previewModelView;
 
     HPL2MetalRenderState zState;
     HPL2MetalRenderState colorState;

@@ -39,7 +39,9 @@ targets:
         embed: true
       - target: HPL2MetalMeshAdapter
       - target: HPL2MetalMeshUploader
+      - target: HPL2MetalMSHReader
       - target: HPL2MetalMatrixAdapter
+      - target: HPL2Math
       - target: HPL2MetalRenderStateAdapter
       - target: HPL2MetalMeshDraw
       - sdk: Metal.framework

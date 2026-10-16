@@ -1,6 +1,7 @@
 #import <XCTest/XCTest.h>
 
 #include "HPL2MetalMSHReader.h"
+#include "EngineResourceAccess.h"
 
 #include <cstring>
 #include <string>
@@ -183,6 +184,47 @@ std::vector<uint8_t> MakeMinimalHPL2MSH(bool outOfRangeIndex = false,
         static_cast<const unsigned char *>(view.attributes[2].bytes);
     XCTAssertEqual(color[0], 255u);
     XCTAssertEqual(color[3], 255u);
+}
+
+- (void)testLoadsOwnerSuppliedMSHThroughAppResourceReaderPath
+{
+    const std::vector<uint8_t> fixture = MakeMinimalHPL2MSH();
+    NSString *root = [NSTemporaryDirectory() stringByAppendingPathComponent:
+        [[NSUUID UUID] UUIDString]];
+    NSString *folder = [root stringByAppendingPathComponent:@"HPL2Import"];
+    NSError *fileError = nil;
+    XCTAssertTrue([[NSFileManager defaultManager] createDirectoryAtPath:folder
+                                            withIntermediateDirectories:YES
+                                                             attributes:nil
+                                                                  error:&fileError],
+                  @"Could not create temporary mesh import folder: %@", fileError);
+    if (fileError != nil) {
+        return;
+    }
+    NSString *filePath = [folder stringByAppendingPathComponent:@"preview.msh"];
+    NSData *fileData = [NSData dataWithBytes:fixture.data() length:fixture.size()];
+    XCTAssertTrue([fileData writeToFile:filePath options:NSDataWritingAtomic error:&fileError],
+                  @"Could not write temporary MSH fixture: %@", fileError);
+    if (fileError != nil) {
+        return;
+    }
+
+    unsigned char *loadedBytes = NULL;
+    size_t loadedLength = 0;
+    const EngineResourceStatus status = EngineResourceReadFile(
+        root.UTF8String, "HPL2Import/preview.msh", &loadedBytes, &loadedLength);
+    XCTAssertEqual(status, ENGINE_RESOURCE_OK);
+    if (status != ENGINE_RESOURCE_OK) {
+        return;
+    }
+    HPL2MetalMSHStaticSubmesh submesh;
+    HPL2MetalMSHError error;
+    XCTAssertTrue(HPL2MetalReadStaticMSHSubmesh(loadedBytes, loadedLength,
+                                                &submesh, &error));
+    EngineResourceFree(loadedBytes);
+    XCTAssertEqual(submesh.vertexCount, 4u);
+    XCTAssertTrue(submesh.name == "HPL2StaticFixture");
+    [[NSFileManager defaultManager] removeItemAtPath:root error:nil];
 }
 
 - (void)testRejectsTruncatedInvalidAndUnsupportedMSHFiles
