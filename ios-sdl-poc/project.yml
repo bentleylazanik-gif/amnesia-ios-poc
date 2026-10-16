@@ -35,9 +35,20 @@ targets:
     dependencies:
       - framework: Vendor/SDL3.xcframework
         embed: true
+      - target: HPL2MetalMeshAdapter
+      - target: HPL2MetalMeshUploader
+      - target: HPL2MetalMatrixAdapter
+      - target: HPL2MetalRenderStateAdapter
+      - target: HPL2MetalMeshDraw
+      - sdk: Metal.framework
+      - sdk: QuartzCore.framework
+      - sdk: Foundation.framework
     settings:
       base:
         PRODUCT_NAME: SDLTouchPoC
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include $(SRCROOT)/Sources"
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+        CLANG_ENABLE_OBJC_ARC: "YES"
 
   SDLMetalVisibleTests:
     type: bundle.ui-testing

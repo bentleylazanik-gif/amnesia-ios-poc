@@ -35,17 +35,17 @@ static BOOL ScreenshotCenterIsBrightWhite(XCUIScreenshot *screenshot)
 
 @implementation SDLMetalVisibleTests
 
-- (void)testSDLAppPresentsMetalTriangleToDisplay
+- (void)testSDLAppPresentsMetalGeometryToDisplay
 {
     XCUIApplication *app = [[XCUIApplication alloc] init];
     [app launch];
 
     XCUIScreenshot *screenshot = nil;
-    BOOL triangle_is_visible = NO;
-    for (NSUInteger attempt = 0; attempt < 20 && !triangle_is_visible; ++attempt) {
+    BOOL geometry_is_visible = NO;
+    for (NSUInteger attempt = 0; attempt < 20 && !geometry_is_visible; ++attempt) {
         screenshot = [[XCUIScreen mainScreen] screenshot];
-        triangle_is_visible = ScreenshotCenterIsBrightWhite(screenshot);
-        if (!triangle_is_visible) {
+        geometry_is_visible = ScreenshotCenterIsBrightWhite(screenshot);
+        if (!geometry_is_visible) {
             [[NSRunLoop currentRunLoop]
                 runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
         }
@@ -53,12 +53,12 @@ static BOOL ScreenshotCenterIsBrightWhite(XCUIScreenshot *screenshot)
 
     if (screenshot != nil) {
         XCTAttachment *attachment = [XCTAttachment attachmentWithScreenshot:screenshot];
-        attachment.name = @"SDL Metal triangle screen";
+        attachment.name = @"SDL Metal indexed quad screen";
         attachment.lifetime = XCTAttachmentLifetimeKeepAlways;
         [self addAttachment:attachment];
     }
-    XCTAssertTrue(triangle_is_visible,
-                  @"Expected a bright Metal-rendered triangle at screen center; see attached screenshot.");
+    XCTAssertTrue(geometry_is_visible,
+                  @"Expected bright Metal-rendered geometry at screen center; see attached screenshot.");
     [app terminate];
 }
 

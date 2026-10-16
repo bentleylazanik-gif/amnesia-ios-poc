@@ -5,12 +5,14 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Latest pushed checkpoint: `15cc2069924b9e12d3f97b8c1e7a524d0a66a21e` on `main`; local HEAD and origin/main matched after push.
+- Latest pushed checkpoint: `c9604155a8a2bd1645f315ef2f1a324c021a167d` on `main`; local HEAD and origin/main matched after push.
 - Adapter run `38861903111` succeeded: device-SDK adapter compile, 14 core/adapter Simulator tests, app SDK builds/IPA and visible UI test all passed.
 - Uploader run `38862662245` succeeded on `e739f6c`: 15 core/adapter/uploader Simulator tests, Metal buffer byte/descriptor assertions, device-SDK and app builds/IPA and visible UI test passed. Link: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38862662245.
 - Matrix run `38863325630` completed successfully on `46ebd5f`: 18 core/adapter/matrix Simulator tests (including 3 matrix tests), device-SDK compilation, app SDK builds/IPA, and visible UI test all passed.
 - Draw run `38864375503` succeeded against `15cc206`: 19 core/adapter/matrix Simulator tests (including MSL indexed-quad draw/readback) and the visible SDL triangle UI test passed; device-SDK compilation, app SDK builds, IPA and result artifacts passed. Link: https://github.com/bentleylazanik-gif/amnesia-ios-poc/actions/runs/38864375503.
-- Current uncommitted work adds `HPL2MetalRenderStateAdapter.{h,mm}` + XCTest for HPL2 depth/cull/channel/blend/alpha/filter/wrap mapping and wires those states into the MSL draw pipeline/encoder (color mask/blend, depth, culling, alpha discard). The updated test runs synthetic HPL2-shaped data through a Z pass and equal-depth color pass, including opaque and transparent-alpha fixtures. It is not an Amnesia asset, scene, or complete engine backend. YAML/Bash/target checks and GCC ASan/UBSan adapter/matrix smokes pass; Obj-C++/Metal state/draw tests await CI. The HPL2 source worktree remains pinned `acc95cd...`; pre-existing untracked files untouched.
+- Stateful draw run `38867225798` succeeded against `93e2461`: 25 core/adapter/matrix/state Simulator tests, device-SDK compile, app builds/IPA and visible UI test passed.
+- Alpha/diffuse separation run `38867486652` succeeded against `c960415`: 25 core/adapter/matrix/state Simulator tests (0 failures), including `testSyntheticHPL2VertexBufferFixtureUploadsAndDrawsIndexedQuad` with an independent transparent alpha map; app device/Simulator builds/IPA and visible UI test also passed. Its source predates the current uncommitted native surface integration.
+- Current uncommitted app milestone: replace SDL_Renderer with `SDL_WINDOW_METAL` + `SDL_Metal_CreateView`, acquire/present one SDL-provided drawable, and display a synthetic HPL2-format indexed quad using the adapter/uploader/matrix/state/draw path. This is not a shipped/game mesh. The earlier SDL_Renderer screenshot run does not verify this native surface change. Main/XcodeGen/README/checkpoint files are modified and need static checks plus a new Actions run. The HPL2 source worktree remains pinned `acc95cd...`; its pre-existing untracked files remain untouched.
 
 ## Latest verification
 
@@ -33,8 +35,8 @@ Updated: 2026-10-16
 
 ## Next action
 
-1. Recheck run `38864375503` logs for the passed synthetic MSL indexed draw/readback; it is successful, not a real Amnesia render.
-2. Review local render-state adapter and Z/diffuse pass integration, then run YAML/Bash/target-exclusion and host ASan checks.
-3. Commit/push only after confirming `origin/main` remains at `15cc2069924b9e12d3f97b8c1e7a524d0a66a21e`; inspect the new stateful draw/test Actions run through completion.
-4. If green, continue with SDL_Metal_CreateView ownership/lifecycle and real HPL2 renderer seam; current synthetic fixture does not render game assets. Still no Amnesia asset or scene has rendered.
+1. The stateful draw and alpha/diffuse runs `38867225798`/`38867486652` both completed successfully; preserve those run IDs as regression evidence.
+2. Finish reviewing the native SDL_Metal_CreateView presenter/lifecycle and app static-library dependencies; rerun YAML/Bash/exclusion checks (Xcode unavailable locally).
+3. Commit/push this app integration only after confirming `origin/main` still equals `c9604155a8a2bd1645f315ef2f1a324c021a167d`; inspect the new Actions build, actual screenshot UI test, and `.xcresult`.
+4. On success, move from the app fixture toward real HPL2 asset loading and material translation; maintain a hard distinction between fixture draw, real mesh, and Amnesia scene.
 5. Keep device-SDK builds, Simulator render tests, physical-iPhone evidence, and genuine Amnesia-scene evidence separate.

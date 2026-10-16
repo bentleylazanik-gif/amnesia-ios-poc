@@ -3,13 +3,14 @@
 #include <SDL3/SDL_main.h>
 
 #include "EngineHostCore.h"
+#include "HPL2MetalWindowPresenter.h"
 
 #include <stdbool.h>
 #include <stdatomic.h>
 
 typedef struct AppState {
     SDL_Window *window;
-    SDL_Renderer *renderer;
+    HPL2MetalWindowPresenterRef metal_presenter;
     const char *bundle_resource_root;
     char *writable_data_root;
     int drawable_width;
@@ -92,21 +93,24 @@ SDL_AppResult SDLCALL SDL_AppInit(void **appstate, int argc, char *argv[])
         "SDL iOS Touch PoC",
         640,
         480,
-        SDL_WINDOW_FULLSCREEN);
+        SDL_WINDOW_FULLSCREEN | SDL_WINDOW_METAL);
     if (app_state.window == NULL) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "SDL_CreateWindow failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    // Select SDL's Metal renderer explicitly; SDL owns the window drawable and layer.
-    app_state.renderer = SDL_CreateRenderer(app_state.window, "metal");
-    if (app_state.renderer == NULL) {
+    // SDL owns the window and Metal view/layer; the HPL2 Metal backend acquires
+    // its drawable through SDL_Metal_CreateView, with no SDL_Renderer competing for it.
+    char metal_error[256] = {0};
+    app_state.metal_presenter = HPL2MetalWindowPresenterCreate(
+        app_state.window, metal_error, sizeof(metal_error));
+    if (app_state.metal_presenter == NULL) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "SDL_CreateRenderer(metal) failed: %s", SDL_GetError());
+                     "HPL2 Metal presenter initialization failed: %s", metal_error);
         return SDL_APP_FAILURE;
     }
-    SDL_Log("Selected SDL renderer: %s", SDL_GetRendererName(app_state.renderer));
+    SDL_Log("Initialized SDL-owned Metal layer and HPL2-format indexed draw path.");
 
     if (SDL_GetWindowSizeInPixels(app_state.window,
                                   &app_state.drawable_width,
@@ -169,43 +173,27 @@ SDL_AppResult SDLCALL SDL_AppIterate(void *state)
         return SDL_APP_CONTINUE;
     }
 
-    if (atomic_load(&app->touching)) {
-        SDL_SetRenderDrawColor(app->renderer, 232, 88, 66, 255);
-    } else {
-        SDL_SetRenderDrawColor(app->renderer, 34, 90, 145, 255);
-    }
-
-    int logical_width = 0;
-    int logical_height = 0;
-    if (!SDL_GetWindowSize(app->window, &logical_width, &logical_height)) {
+    if (!SDL_GetWindowSizeInPixels(app->window,
+                                   &app->drawable_width,
+                                   &app->drawable_height)) {
         SDL_LogError(SDL_LOG_CATEGORY_RENDER,
-                     "Could not query logical window size: %s", SDL_GetError());
+                     "Could not query Metal drawable size: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    if (logical_width <= 0 || logical_height <= 0) {
+    if (app->drawable_width <= 0 || app->drawable_height <= 0) {
         return SDL_APP_CONTINUE;
     }
 
-    const SDL_FColor triangle_color = {1.0f, 1.0f, 1.0f, 1.0f};
-    const SDL_Vertex triangle[3] = {
-        {{logical_width * 0.5f, logical_height * 0.22f}, triangle_color, {0.0f, 0.0f}},
-        {{logical_width * 0.24f, logical_height * 0.76f}, triangle_color, {0.0f, 0.0f}},
-        {{logical_width * 0.76f, logical_height * 0.76f}, triangle_color, {0.0f, 0.0f}}
-    };
-
-    if (!SDL_RenderClear(app->renderer)) {
+    char metal_error[256] = {0};
+    if (!HPL2MetalWindowPresenterRender(
+            app->metal_presenter,
+            app->drawable_width,
+            app->drawable_height,
+            atomic_load(&app->touching),
+            metal_error,
+            sizeof(metal_error))) {
         SDL_LogError(SDL_LOG_CATEGORY_RENDER,
-                     "Render clear failed: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-    if (!SDL_RenderGeometry(app->renderer, NULL, triangle, 3, NULL, 0)) {
-        SDL_LogError(SDL_LOG_CATEGORY_RENDER,
-                     "Triangle draw failed: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-    if (!SDL_RenderPresent(app->renderer)) {
-        SDL_LogError(SDL_LOG_CATEGORY_RENDER,
-                     "Render present failed: %s", SDL_GetError());
+                     "HPL2 Metal drawable frame failed: %s", metal_error);
         return SDL_APP_FAILURE;
     }
 
@@ -222,9 +210,9 @@ void SDLCALL SDL_AppQuit(void *state, SDL_AppResult result)
             SDL_RemoveEventWatch(AppLifecycleEventWatch, app);
             app->event_watch_registered = false;
         }
-        if (app->renderer != NULL) {
-            SDL_DestroyRenderer(app->renderer);
-            app->renderer = NULL;
+        if (app->metal_presenter != NULL) {
+            HPL2MetalWindowPresenterDestroy(app->metal_presenter);
+            app->metal_presenter = NULL;
         }
         if (app->window != NULL) {
             SDL_DestroyWindow(app->window);
