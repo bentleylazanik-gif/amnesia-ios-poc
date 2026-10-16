@@ -5,7 +5,7 @@ Updated: 2026-10-16
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Latest code checkpoint: `f6d4631d0bb5443084811ef17bdb4c925677b5ff`; latest pushed HEAD includes a docs-only follow-up `044f7ff9963d5f8ab5e9a6829b47ca2bbda04d85`. Local HEAD and origin/main match. Runs `38901969951` (`a9255ab`) and `38902737527` (`b278322`) passed; source-validation run `38904408846` for `f6d4631` is in progress.
+- Latest code checkpoint: `f6d4631d0bb5443084811ef17bdb4c925677b5ff`; current pushed HEAD `5b5e83f` contains docs-only checkpoints. Local HEAD and origin/main match and the worktree was clean at recovery. Runs `38901969951`, `38902737527`, and `38904408846` all passed.
 - Runs `38861903111` (descriptor adapter), `38862662245` (Metal buffer uploader), `38863325630` (matrix), `38864375503` (initial indexed draw), `38867225798` (render state), `38867486652` (alpha/diffuse separation), and `38870203930` (native SDL Metal surface) all passed. See PORT_PROGRESS.md for per-run test/build counts.
 - Latest completed run `38870203930` verified `SDL_Metal_CreateView` app path: 25 core Simulator tests, device-SDK compile, unsigned app device/Simulator builds and IPA, plus visible screenshot test `testSDLAppPresentsMetalGeometryToDisplay` (1/0 failures; `SDL Metal indexed quad screen` attachment). This is synthetic geometry, not an Amnesia asset or physical iPhone run.
 - MSH reader run `38898274435` succeeded on `d0ac24e`: device-SDK parser compile and 4 MSH XCTest methods passed within 29 total Simulator tests (0 failures), app builds/IPA and native-surface UI passed. It supports static one-submesh MSH v7 only and does not prove compatibility with an actual shipped asset. HPL2 source checkout remains pinned at `acc95cd...`; its untracked stage is untouched.
@@ -27,8 +27,8 @@ Updated: 2026-10-16
 
 ## Next action
 
-1. Inspect Actions run `38904408846` for commit `f6d4631`; its MSH error/alignment tests must pass within XCTest, followed by app device/Simulator build, IPA, and visible UI regression.
-2. If it passes, reconcile the exact test count/artifacts in all three checkpoint files. If it fails, inspect the first concrete compiler/test error and fix the root cause before rerunning.
-3. Continue toward actual owner mesh compatibility: extend the static reader beyond one submesh or implement a minimal supported material/texture mapping, based on source/corpus feasibility. Owner assets remain absent, so do not call generated fixture an Amnesia mesh.
+1. Actions `38904408846` passed on code commit `f6d4631`: 31 Simulator tests, device-SDK compile, unsigned device/Simulator builds, IPA, and visible UI screenshot (1 test, 0 failures). Artifacts: IPA `12047174880`; `SDLMetalVisible.xcresult` `12048336008`; app products `12047946367`; XCTest `.xcresult` `12048126034`.
+2. The existing importer needs exactly one owner-supplied raw MSH v7 file at `Documents/HPL2Import/preview.msh` for geometry-only preview. It requires one static submesh, position/color0/texture0 streams and triangle indices; it ignores `.mat` and textures. Ask user to provide a legally owned `.msh`, then run reader/parser/Metal draw and record genuine-asset evidence.
+3. No uploaded game asset is visible in the workspace and this session has no dedicated file-receive tool; wait for a chat attachment or an explicit path mounted under the workspace. Do not fabricate assets or claim a scene/gameplay result.
 4. No Xcode is installed locally, so only Actions can validate Obj-C++/Metal/app. Consider a test-only visual injection path only if it can stay outside shipping app code; never label generated fixture as Amnesia content.
 5. Keep device-SDK builds, Simulator render tests, physical-iPhone evidence, and genuine Amnesia-scene evidence separate.
