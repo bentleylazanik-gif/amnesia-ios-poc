@@ -463,10 +463,15 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     // A transparent alpha map should discard the Z pass; the equal-depth
     // color pass must then leave the cleared target untouched.
     const uint8_t transparentPixel[4] = {255, 255, 255, 0};
-    [diffuse replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
-               mipmapLevel:0
-                 withBytes:transparentPixel
-               bytesPerRow:sizeof(transparentPixel)];
+    id<MTLTexture> transparentAlphaMap = [device newTextureWithDescriptor:diffuseDescriptor];
+    XCTAssertNotNil(transparentAlphaMap);
+    if (transparentAlphaMap == nil) {
+        return;
+    }
+    [transparentAlphaMap replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+                           mipmapLevel:0
+                             withBytes:transparentPixel
+                           bytesPerRow:sizeof(transparentPixel)];
     id<MTLCommandBuffer> cutoutCommand = [queue commandBuffer];
     zPass = [MTLRenderPassDescriptor renderPassDescriptor];
     zPass.colorAttachments[0].texture = target;
@@ -486,7 +491,7 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
                                 encoder:encoder
                              projection:&projection
                               modelView:&modelView
-                         textureUnitZero:diffuse
+                         textureUnitZero:transparentAlphaMap
                                   sampler:sampler
                                useDiffuse:NO
                                     error:&drawError]);
