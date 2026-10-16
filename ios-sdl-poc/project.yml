@@ -22,6 +22,8 @@ targets:
           - IOSMetalTriangleProbe.mm
           - HPL2MetalMeshAdapter.h
           - HPL2MetalMeshAdapter.cpp
+          - HPL2MetalMeshUploader.h
+          - HPL2MetalMeshUploader.mm
     info:
       path: Info.plist
     dependencies:
@@ -104,6 +106,22 @@ targets:
         HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include $(SRCROOT)/Sources"
         CLANG_CXX_LANGUAGE_STANDARD: gnu++11
 
+  HPL2MetalMeshUploader:
+    type: library.static
+    platform: iOS
+    sources:
+      - path: Sources/HPL2MetalMeshUploader.mm
+    dependencies:
+      - target: HPL2MetalMeshAdapter
+      - sdk: Metal.framework
+      - sdk: Foundation.framework
+    settings:
+      base:
+        PRODUCT_NAME: HPL2MetalMeshUploader
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/EngineSource/HPL2/core/include $(SRCROOT)/Sources"
+        CLANG_CXX_LANGUAGE_STANDARD: gnu++11
+        CLANG_ENABLE_OBJC_ARC: "YES"
+
   HPL2CRCTestHost:
     type: application
     platform: iOS
@@ -134,6 +152,7 @@ targets:
       - target: HPL2Math
       - target: IOSMetalTriangleProbe
       - target: HPL2MetalMeshAdapter
+      - target: HPL2MetalMeshUploader
       - target: HPL2CRCTestHost
       - sdk: Metal.framework
       - sdk: Foundation.framework
@@ -167,6 +186,7 @@ schemes:
         HPL2Math: all
         IOSMetalTriangleProbe: all
         HPL2MetalMeshAdapter: all
+        HPL2MetalMeshUploader: all
         HPL2CRCTestHost: all
         HPL2CRCTests: [test]
     test:

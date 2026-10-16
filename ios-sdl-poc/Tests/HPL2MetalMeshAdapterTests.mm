@@ -1,6 +1,7 @@
 #import <XCTest/XCTest.h>
+#import <Metal/Metal.h>
 
-#include "HPL2MetalMeshAdapter.h"
+#import "HPL2MetalMeshUploader.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -190,6 +191,62 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     XCTAssertEqual(mesh.attributeCount, 0u);
 }
 
+- (void)testMetalUploaderCopiesCreatePlaneStreamsAndUInt32Indices
+{
+    TestHPL2VertexBuffer buffer;
+    buffer.vertexCount = 4;
+    buffer.positionComponents = 4;
+    buffer.normalComponents = 3;
+    buffer.colorComponents = 4;
+    buffer.textureComponents = 3;
+    buffer.tangentComponents = 4;
+    buffer.positions.assign(16, 0.0f);
+    buffer.positions[0] = 2.5f;
+    buffer.positions[3] = 1.0f;
+    buffer.normals.assign(12, 0.0f);
+    buffer.colors.assign(16, 1.0f);
+    buffer.texture0.assign(12, 0.0f);
+    buffer.tangents.assign(16, 0.0f);
+    buffer.indices = {0, 1, 2, 2, 3, 0};
+
+    HPL2MetalMeshView view;
+    HPL2MetalMeshError adapterError;
+    XCTAssertTrue(HPL2MetalBuildMeshViewFromVertexBuffer(
+        &buffer, hpl::eVertexBufferDrawType_Tri, &view, &adapterError));
+
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    XCTAssertNotNil(device);
+    if (device == nil) {
+        return;
+    }
+    NSError *uploadError = nil;
+    HPL2MetalMeshUpload *upload =
+        [HPL2MetalMeshUpload uploadMeshView:&view device:device error:&uploadError];
+    XCTAssertNotNil(upload, @"HPL2-to-Metal buffer upload failed: %@", uploadError);
+    if (upload == nil) {
+        return;
+    }
+
+    XCTAssertEqual(upload.vertexCount, 4u);
+    XCTAssertEqual(upload.indexCount, 6u);
+    XCTAssertEqual(upload.drawIndexCount, 6u);
+    XCTAssertEqual(upload.vertexBuffers.count, 5u);
+    XCTAssertNotNil(upload.indexBuffer);
+    XCTAssertEqual(upload.indexBuffer.length, 6u * sizeof(unsigned int));
+    XCTAssertEqual(upload.vertexDescriptor.attributes[0].format, MTLVertexFormatFloat4);
+    XCTAssertEqual(upload.vertexDescriptor.attributes[0].bufferIndex, 0u);
+    XCTAssertEqual(upload.vertexDescriptor.layouts[0].stride, 4u * sizeof(float));
+
+    const float *uploadedPositions = (const float *)upload.vertexBuffers[0].contents;
+    XCTAssertEqualWithAccuracy(uploadedPositions[0], 2.5f, 1e-6f);
+    XCTAssertEqualWithAccuracy(uploadedPositions[3], 1.0f, 1e-6f);
+    const unsigned int *uploadedIndices =
+        (const unsigned int *)upload.indexBuffer.contents;
+    for (NSUInteger index = 0; index < buffer.indices.size(); ++index) {
+        XCTAssertEqual(uploadedIndices[index], buffer.indices[index]);
+    }
+}
+
 - (void)testByteColorUsesTheNormalizedMetalAttributeFormat
 {
     const uint32_t positions[9] = {0, 0, 0, 1, 0, 0, 0, 1, 0};
@@ -329,6 +386,17 @@ HPL2MetalVertexStreamView Stream(hpl::eVertexBufferElement semantic,
     XCTAssertEqual(mesh.vertexCount, 0u);
     XCTAssertEqual(mesh.indexCount, 0u);
     XCTAssertEqual(mesh.attributeCount, 0u);
+
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    XCTAssertNotNil(device);
+    if (device != nil) {
+        NSError *uploadError = nil;
+        HPL2MetalMeshUpload *upload =
+            [HPL2MetalMeshUpload uploadMeshView:&mesh device:device error:&uploadError];
+        XCTAssertNotNil(upload, @"Empty mesh upload failed: %@", uploadError);
+        XCTAssertEqual(upload.vertexBuffers.count, 0u);
+        XCTAssertNil(upload.indexBuffer);
+    }
 
     const unsigned int danglingIndex = 0;
     source.indices = &danglingIndex;
