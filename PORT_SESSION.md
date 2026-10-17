@@ -5,7 +5,7 @@ Updated: 2026-10-17
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Latest validated code: `f6d4631d0bb5443084811ef17bdb4c925677b5ff`; current pushed `main` is `5400070a69b53cb4f4142dc59360771667aec22f`. Runs `38901969951`, `38902737527`, and `38904408846` passed. Current local, uncommitted change adds native game-folder import controls in `HPL2GameDataImportOverlay.mm`, presenter wiring, and a UI picker test.
+- Latest code commit: `b1efa11ea544a21ee625767ed148d7fcc5f7e5da` on `main`; run `39075084085` is queued/in progress. Prior runs `38901969951`, `38902737527`, and `38904408846` passed. The new code adds native game-folder import controls and a Files-picker UI test while retaining the separate Metal mesh preview.
 - Runs `38861903111` (descriptor adapter), `38862662245` (Metal buffer uploader), `38863325630` (matrix), `38864375503` (initial indexed draw), `38867225798` (render state), `38867486652` (alpha/diffuse separation), and `38870203930` (native SDL Metal surface) all passed. See PORT_PROGRESS.md for per-run test/build counts.
 - Latest completed run `38870203930` verified `SDL_Metal_CreateView` app path: 25 core Simulator tests, device-SDK compile, unsigned app device/Simulator builds and IPA, plus visible screenshot test `testSDLAppPresentsMetalGeometryToDisplay` (1/0 failures; `SDL Metal indexed quad screen` attachment). This is synthetic geometry, not an Amnesia asset or physical iPhone run.
 - MSH reader run `38898274435` succeeded on `d0ac24e`: device-SDK parser compile and 4 MSH XCTest methods passed within 29 total Simulator tests (0 failures), app builds/IPA and native-surface UI passed. It supports static one-submesh MSH v7 only and does not prove compatibility with an actual shipped asset. HPL2 source checkout remains pinned at `acc95cd...`; its untracked stage is untouched.
@@ -27,8 +27,8 @@ Updated: 2026-10-17
 
 ## Next action
 
-1. Prior code run `38904408846` passed 31 Simulator tests, device SDK/app device+Simulator builds, IPA packaging, and visible fallback screenshot. This run does not validate the new Files folder import.
-2. Verify the current `HPL2GameDataImportOverlay` source compiles and the picker UI test passes in the existing Actions workflow; fix only concrete failures. Ensure the inventory labels `config/main_init.cfg`, `.msh`, and `.mat` as found/counts without claiming engine startup.
+1. Actions run `39075084085` is queued/in progress for commit `b1efa11`; it is the targeted validation of the native Files picker, app builds, IPA, and picker UI test. Prior run `38904408846` already verified 31 Simulator tests plus the app build/package and fallback screenshot.
+2. Inspect the concrete result of `39075084085`; if it passes, record the test count/artifact IDs. If it fails, fix only the reported picker compile/UI issue. Its inventory reports `config/main_init.cfg`, `.msh`, and `.mat` but does not claim engine startup.
 3. No game asset is available in this workspace and there is no dedicated upload tool in this session. Ask user to attach or place a legally owned game-data folder. The viewer still needs one static MSH v7 submesh at `Documents/HPL2Import/preview.msh`; full materials/engine startup/gameplay remain unimplemented.
 4. No Xcode is installed locally, so only Actions can validate Obj-C++/Metal/app. Consider a test-only visual injection path only if it can stay outside shipping app code; never label generated fixture as Amnesia content.
 5. Keep device-SDK builds, Simulator render tests, physical-iPhone evidence, and genuine Amnesia-scene evidence separate.
