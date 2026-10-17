@@ -47,6 +47,8 @@ targets:
       - sdk: Metal.framework
       - sdk: QuartzCore.framework
       - sdk: Foundation.framework
+      - sdk: UIKit.framework
+      - sdk: UniformTypeIdentifiers.framework
     settings:
       base:
         PRODUCT_NAME: SDLTouchPoC

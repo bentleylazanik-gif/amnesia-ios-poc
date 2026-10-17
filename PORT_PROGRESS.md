@@ -1,6 +1,6 @@
 # Amnesia iOS Port Progress
 
-Last updated: 2026-10-16
+Last updated: 2026-10-17
 
 ## Verified repository baseline
 
@@ -94,6 +94,7 @@ All source references below were inspected in the full upstream checkout at `acc
 - Actions run `38901341636` compiled the reader/device libraries and passed all 30 Simulator XCTest methods (including the app-container resource read fixture, 0 failures), but app device-SDK compilation caught unsupported `cVector3f` unary negation and undeclared `SDL_Log`. Commit `a9255ab` fixed these (component-wise center negation; `fprintf(stderr, ...)`). **Run `38901969951` passed** on `a9255ab`: 30 Simulator XCTest methods (0 failures), device-SDK math/Metal compile, unsigned device and Simulator app builds, IPA packaging, and the visible Metal indexed-quad screenshot UI test (1 test, 0 failures). Artifacts: unsigned IPA `12046837811`, `SDLMetalVisible.xcresult` `12047420574`, app products `12046408283`, math result `12046837675`.
 - **Run `38902737527` passed** on `b278322`: 31 Simulator XCTest methods (0 failures), including `testGeneratedMSHFixtureUploadsAndDrawsIndexedMeshInMetal`, which parsed generated MSH v7 bytes, uploaded streams/indices, issued the Metal indexed draw and validated center-pixel readback. Device-SDK and app Simulator/device builds, IPA packaging, screenshot UI test (1/0 failures), and artifacts passed; visible attachment `SDL Metal indexed quad screen` is still the synthetic fallback, not an owner-supplied game mesh. Artifacts: IPA `12047315923`, `SDLMetalVisible.xcresult` `12047332080`, app products `12046048630`, math result `12047127583`.
 - Host ASan/UBSan parser smoke passes oversized-truncated streams, out-of-range indices, collider records, negative/truncated collider/index counts, and a 3-byte-color stream followed by floats. Commit `f6d4631` distinguishes negative-count `InvalidCount` from missing-payload `Truncated` and tests tight serialization/aligned owned storage. **Actions run `38904408846` passed on `f6d4631`**: 31 Simulator XCTest methods (0 failures), including MSH parser/validation and generated MSH→Metal indexed draw; device-SDK compile, unsigned app device/Simulator builds, IPA packaging, and screenshot UI test (1 test, 0 failures) passed. Artifacts: IPA `12047174880`, visible `.xcresult` `12048336008`, app products `12047946367`, XCTest `.xcresult` `12048126034`. Its UI screenshot remains the synthetic fallback. No genuine mesh was included.
+- New milestone (CI pending): `HPL2GameDataImportOverlay` adds a native iOS Files folder picker above the existing SDL Metal preview, copies a selected folder to `Documents/AmnesiaData`, shows busy/status/errors, and inventories `config/main_init.cfg`, `.msh`, and `.mat`. It does not start HPL2 or claim all dependencies are satisfied. A UI XCTest opens/cancels the picker; the current MSH preview stays a separate diagnostic path.
 
 ## SDL host foundation (`a0bf41b`; CI verified)
 

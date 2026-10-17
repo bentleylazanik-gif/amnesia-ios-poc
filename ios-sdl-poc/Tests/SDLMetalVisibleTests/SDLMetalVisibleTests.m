@@ -35,6 +35,25 @@ static BOOL ScreenshotCenterIsBrightWhite(XCUIScreenshot *screenshot)
 
 @implementation SDLMetalVisibleTests
 
+- (void)testGameDataImportButtonOpensNativeFilesPicker
+{
+    XCUIApplication *app = [[XCUIApplication alloc] init];
+    [app launch];
+
+    XCUIElement *importButton = app.buttons[@"game-data-import-button"];
+    XCTAssertTrue([importButton waitForExistenceWithTimeout:8.0],
+                  @"Expected the native game-data import button on the Metal preview.");
+    [importButton tap];
+
+    XCUIElement *cancelButton = app.buttons[@"Cancel"];
+    XCTAssertTrue([cancelButton waitForExistenceWithTimeout:10.0],
+                  @"Expected the native Files folder picker to be presented.");
+    if (cancelButton.exists) {
+        [cancelButton tap];
+    }
+    [app terminate];
+}
+
 - (void)testSDLAppPresentsMetalGeometryToDisplay
 {
     XCUIApplication *app = [[XCUIApplication alloc] init];

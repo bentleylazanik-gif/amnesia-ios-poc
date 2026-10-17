@@ -10,6 +10,7 @@
 #import "HPL2MetalMeshUploader.h"
 #import "HPL2MetalRenderStateAdapter.h"
 #import "HPL2MetalMSHReader.h"
+#import "HPL2GameDataImportOverlay.h"
 
 #include "EngineResourceAccess.h"
 #include "math/Math.h"
@@ -204,6 +205,7 @@ static bool BuildSyntheticFixtureView(HPL2MetalMeshView *view,
 @property (nonatomic, strong) id<MTLDevice> device;
 @property (nonatomic, strong) id<MTLCommandQueue> commandQueue;
 @property (nonatomic, strong) id<MTLCommandBuffer> lastCommandBuffer;
+@property (nonatomic, strong) HPL2GameDataImportOverlay *gameDataImportOverlay;
 @property (nonatomic, strong) HPL2MetalMeshUpload *meshUpload;
 @property (nonatomic, strong) HPL2MetalMeshDraw *zPrepass;
 @property (nonatomic, strong) HPL2MetalMeshDraw *colorPass;
@@ -462,6 +464,15 @@ static bool BuildSyntheticFixtureView(HPL2MetalMeshView *view,
     self.metalLayer.device = self.device;
     self.metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
     self.metalLayer.framebufferOnly = YES;
+    self.gameDataImportOverlay = [[HPL2GameDataImportOverlay alloc]
+        initWithView:(__bridge UIView *)self.metalView];
+    if (self.gameDataImportOverlay == nil) {
+        if (error != NULL) {
+            *error = PresenterError(26, @"Could not create the iOS game-data import controls.");
+        }
+        [self shutdown];
+        return nil;
+    }
     return self;
 }
 
@@ -604,6 +615,8 @@ static bool BuildSyntheticFixtureView(HPL2MetalMeshView *view,
         [self.lastCommandBuffer waitUntilCompleted];
     }
     self.lastCommandBuffer = nil;
+    [self.gameDataImportOverlay shutdown];
+    self.gameDataImportOverlay = nil;
     if (self.metalView != NULL) {
         SDL_Metal_DestroyView(self.metalView);
         self.metalView = NULL;

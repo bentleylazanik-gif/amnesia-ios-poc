@@ -1,11 +1,11 @@
 # Port Session Checkpoint
 
-Updated: 2026-10-16
+Updated: 2026-10-17
 
 ## Repository
 
 - Repo: `bentleylazanik-gif/amnesia-ios-poc`; worktree: `/tmp/tmp.VZQPoiHQ4P`; branch: `main`; remote: `https://github.com/bentleylazanik-gif/amnesia-ios-poc.git`.
-- Latest code checkpoint: `f6d4631d0bb5443084811ef17bdb4c925677b5ff`; current pushed HEAD `5b5e83f` contains docs-only checkpoints. Local HEAD and origin/main match and the worktree was clean at recovery. Runs `38901969951`, `38902737527`, and `38904408846` all passed.
+- Latest validated code: `f6d4631d0bb5443084811ef17bdb4c925677b5ff`; current pushed `main` is `5400070a69b53cb4f4142dc59360771667aec22f`. Runs `38901969951`, `38902737527`, and `38904408846` passed. Current local, uncommitted change adds native game-folder import controls in `HPL2GameDataImportOverlay.mm`, presenter wiring, and a UI picker test.
 - Runs `38861903111` (descriptor adapter), `38862662245` (Metal buffer uploader), `38863325630` (matrix), `38864375503` (initial indexed draw), `38867225798` (render state), `38867486652` (alpha/diffuse separation), and `38870203930` (native SDL Metal surface) all passed. See PORT_PROGRESS.md for per-run test/build counts.
 - Latest completed run `38870203930` verified `SDL_Metal_CreateView` app path: 25 core Simulator tests, device-SDK compile, unsigned app device/Simulator builds and IPA, plus visible screenshot test `testSDLAppPresentsMetalGeometryToDisplay` (1/0 failures; `SDL Metal indexed quad screen` attachment). This is synthetic geometry, not an Amnesia asset or physical iPhone run.
 - MSH reader run `38898274435` succeeded on `d0ac24e`: device-SDK parser compile and 4 MSH XCTest methods passed within 29 total Simulator tests (0 failures), app builds/IPA and native-surface UI passed. It supports static one-submesh MSH v7 only and does not prove compatibility with an actual shipped asset. HPL2 source checkout remains pinned at `acc95cd...`; its untracked stage is untouched.
@@ -27,8 +27,8 @@ Updated: 2026-10-16
 
 ## Next action
 
-1. Actions `38904408846` passed on code commit `f6d4631`: 31 Simulator tests, device-SDK compile, unsigned device/Simulator builds, IPA, and visible UI screenshot (1 test, 0 failures). Artifacts: IPA `12047174880`; `SDLMetalVisible.xcresult` `12048336008`; app products `12047946367`; XCTest `.xcresult` `12048126034`.
-2. The existing importer needs exactly one owner-supplied raw MSH v7 file at `Documents/HPL2Import/preview.msh` for geometry-only preview. It requires one static submesh, position/color0/texture0 streams and triangle indices; it ignores `.mat` and textures. Ask user to provide a legally owned `.msh`, then run reader/parser/Metal draw and record genuine-asset evidence.
-3. No uploaded game asset is visible in the workspace and this session has no dedicated file-receive tool; wait for a chat attachment or an explicit path mounted under the workspace. Do not fabricate assets or claim a scene/gameplay result.
+1. Prior code run `38904408846` passed 31 Simulator tests, device SDK/app device+Simulator builds, IPA packaging, and visible fallback screenshot. This run does not validate the new Files folder import.
+2. Verify the current `HPL2GameDataImportOverlay` source compiles and the picker UI test passes in the existing Actions workflow; fix only concrete failures. Ensure the inventory labels `config/main_init.cfg`, `.msh`, and `.mat` as found/counts without claiming engine startup.
+3. No game asset is available in this workspace and there is no dedicated upload tool in this session. Ask user to attach or place a legally owned game-data folder. The viewer still needs one static MSH v7 submesh at `Documents/HPL2Import/preview.msh`; full materials/engine startup/gameplay remain unimplemented.
 4. No Xcode is installed locally, so only Actions can validate Obj-C++/Metal/app. Consider a test-only visual injection path only if it can stay outside shipping app code; never label generated fixture as Amnesia content.
 5. Keep device-SDK builds, Simulator render tests, physical-iPhone evidence, and genuine Amnesia-scene evidence separate.
